@@ -1,0 +1,56 @@
+/*
+ * Pantalla de acceso · maquetación de página.
+ * Se carga después de institucional.css: tokens, campos, contraseña, botones, alertas y la ventana de estado vienen del sistema.
+ * Aquí solo vive lo propio del acceso (ESTANDAR_FRONTEND.md §4.1).
+ */
+
+.access-body { min-height: 100vh; }
+.access-layout { display: grid; grid-template-columns: minmax(430px, 38%) minmax(0, 1fr); min-height: 100vh; min-height: 100svh; }
+
+/* Panel institucional */
+.access-brand { position: relative; overflow: hidden; padding: 38px var(--spacing-48); background: var(--color-primary); color: var(--color-on-primary); }
+.access-brand-header, .access-brand-copy { position: relative; z-index: 2; }
+.access-brand-logos { display: block; width: min(315px, 72%); height: auto; }
+.access-brand-line { height: 1px; margin-top: 28px; background: rgba(188, 149, 91, .58); }
+.access-brand-copy { margin-top: clamp(92px, 12vh, 145px); }
+.access-brand-accent { display: block; width: 56px; height: var(--spacing-4); margin-bottom: 26px; border-radius: var(--border-radius-pill); background: var(--color-secondary); }
+/* Título de marca: única excepción a la escala tipográfica (máx. 48px). */
+.access-brand-copy h1 { max-width: 520px; margin: 0; color: var(--color-on-primary); font-size: clamp(36px, 3vw, 48px); line-height: 1.06; letter-spacing: -.5px; }
+.access-brand-hummingbird { position: absolute; z-index: 1; right: -6%; bottom: -8%; width: min(54vw, 470px); height: auto; opacity: .3; transform: rotate(-2deg); filter: saturate(.82); pointer-events: none; }
+
+/* Panel del formulario */
+.access-panel { display: flex; align-items: center; justify-content: center; min-width: 0; padding: 42px; background: var(--color-background); }
+/* Tarjeta destacada: estándar de cards con 40px de espacio interior y sombra elevada (§3.7). */
+.access-card { width: min(100%, 512px); padding: 40px; border: var(--card-border); border-top: var(--card-accent); border-radius: var(--card-radius); background: var(--card-background); box-shadow: var(--shadow-card-elevated); }
+.access-card h2 { margin: 0 0 var(--spacing-8); font-size: var(--font-size-xl); line-height: 1.15; }
+.access-intro { margin: 0 0 30px; color: var(--color-text-secondary); }
+.access-card .form-field { gap: 6px; margin-bottom: 20px; }
+.access-card .form-field > label { color: var(--color-primary); font-weight: var(--font-weight-regular); }
+.access-required { color: var(--color-text-secondary); font-weight: var(--font-weight-regular); }
+.access-card .input-text { min-height: 48px; padding: 11px 13px; }
+.access-card .password-field .input-text { min-height: 46px; }
+.access-card .password-toggle { min-width: 80px; font-weight: var(--font-weight-regular); }
+.access-submit { min-height: 48px; margin-top: 2px; font-size: var(--font-size-base); box-shadow: 0 7px 16px rgba(86, 33, 47, .15); }
+.access-submit:hover { background: var(--color-primary-dark); border-color: var(--color-primary-dark); }
+
+@media (max-width: 900px) {
+    .access-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .access-brand { min-height: 285px; padding: 26px 28px 30px; }
+    .access-brand-logos { width: min(280px, 72%); }
+    .access-brand-line { margin-top: 18px; }
+    .access-brand-copy { margin-top: 34px; }
+    .access-brand-accent { margin-bottom: 14px; }
+    .access-brand-copy h1 { font-size: clamp(29px, 7vw, 38px); }
+    .access-brand-hummingbird { right: 1%; bottom: -55%; width: min(330px, 52vw); }
+    .access-panel { align-items: flex-start; padding: 34px 20px 44px; }
+}
+@media (max-width: 520px) {
+    .access-brand { min-height: 245px; padding: 22px 20px 26px; }
+    .access-brand-copy { margin-top: 28px; }
+    .access-brand-copy h1 { font-size: 29px; }
+    .access-brand-hummingbird { right: -25px; bottom: -105px; width: 260px; }
+    .access-panel { padding: 24px var(--spacing-16) 34px; }
+    .access-card { padding: 30px 22px 26px; }
+    .access-card h2 { font-size: 30px; }
+}
+.access-link { margin: var(--spacing-24) 0 0; text-align: center; }

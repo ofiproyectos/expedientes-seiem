@@ -1,0 +1,31 @@
+<?php
+
+return [
+    'required' => 'El campo :attribute es obligatorio.',
+    'string' => 'El campo :attribute debe ser texto.',
+    'integer' => 'El campo :attribute debe ser un número entero.',
+    'array' => 'El campo :attribute no es válido.',
+    'date' => 'El campo :attribute debe ser una fecha válida.',
+    'after' => 'El campo :attribute debe ser posterior a :date.',
+    'after_or_equal' => 'El campo :attribute debe ser igual o posterior a :date.',
+    'boolean' => 'El campo :attribute debe ser verdadero o falso.',
+    'confirmed' => 'La confirmación de :attribute no coincide.',
+    'current_password' => 'La contraseña actual no es correcta.',
+    'different' => 'El campo :attribute debe ser distinto de :other.',
+    'enum' => 'El valor seleccionado para :attribute no es válido.',
+    'exists' => 'El valor seleccionado para :attribute no es válido.',
+    'unique' => 'El campo :attribute ya está registrado.',
+    'in' => 'El valor seleccionado para :attribute no está permitido.',
+    'regex' => 'El formato de :attribute no es válido.',
+    'file' => 'El campo :attribute debe ser un archivo.',
+    'uploaded' => 'No se pudo cargar :attribute. Revisa el tamaño y vuelve a intentarlo.',
+    'max' => ['string' => 'El campo :attribute no debe superar :max caracteres.', 'file' => 'El archivo :attribute no debe superar :max KB.', 'array' => 'Puedes seleccionar como máximo :max archivos.'],
+    'min' => ['string' => 'El campo :attribute debe tener al menos :min caracteres.', 'array' => 'Selecciona al menos :min archivo.'],
+    'password' => ['letters' => 'La contraseña debe incluir letras.', 'numbers' => 'La contraseña debe incluir números.', 'min' => 'La contraseña debe tener al menos :min caracteres.'],
+    'attributes' => [
+        'name' => 'nombre', 'username' => 'nombre de usuario', 'password' => 'contraseña', 'current_password' => 'contraseña actual', 'role' => 'rol', 'is_active' => 'estado',
+        'user_id' => 'lector', 'document_id' => 'documento', 'starts_at' => 'inicio', 'expires_at' => 'expiración', 'type' => 'tipo', 'file' => 'archivo', 'files' => 'archivos',
+        'description' => 'descripción', 'title' => 'título', 'reason' => 'motivo', 'status' => 'estado', 'change_description' => 'descripción del cambio',
+        'from' => 'fecha inicial', 'to' => 'fecha final', 'per_page' => 'registros por página', 'sort' => 'orden', 'document_type' => 'tipo de documento',
+    ],
+];
