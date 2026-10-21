@@ -75,7 +75,7 @@
         <section class="form-section" aria-labelledby="seccion-estado">
             <div class="form-section-heading">
                 <span class="section-number" aria-hidden="true">{{ $siguiente() }}</span>
-                <div><h2 id="seccion-estado">Estado</h2><p>Borrador → Activo → Cerrado → Archivado. Un expediente cerrado puede reabrirse; el archivado es definitivo.</p></div>
+                <div><h2 id="seccion-estado">Estado</h2><p>Activo → Archivado. Los expedientes activos admiten modificaciones; el archivado es definitivo.</p></div>
             </div>
             @if($can['status'] && $estado->transitions())
                 <form method="POST" action="{{ route('expedientes.status', $expediente) }}" data-cargando="Cambiando estado…">
@@ -98,7 +98,7 @@
                         </div>
                     </div>
                     <div class="form-actions">
-                        <x-ui.boton type="submit" data-confirm="El expediente cambiará de estado. Cerrado y archivado lo protegen contra modificaciones; el archivado no se puede revertir." data-confirm-title="Cambiar estado" data-confirm-accept="Sí, cambiar estado"><x-ui.icono nombre="check" class="icono-sm"/>Cambiar estado</x-ui.boton>
+                        <x-ui.boton type="submit" data-confirm="El expediente se archivará y quedará protegido contra modificaciones. El archivado no se puede revertir." data-confirm-title="Archivar expediente" data-confirm-accept="Sí, archivar"><x-ui.icono nombre="check" class="icono-sm"/>Archivar expediente</x-ui.boton>
                     </div>
                 </form>
             @elseif(! $estado->transitions())
@@ -106,7 +106,7 @@
             @endif
             <h3 class="subsection-title">Historial de estados</h3>
             @if($statusHistory->isEmpty())
-                <p class="muted">Sin cambios de estado registrados. Estado inicial: Borrador.</p>
+                <p class="muted">Sin cambios de estado registrados. Estado actual: {{ $estado->label() }}.</p>
             @else
                 <div class="table-scroll" role="region" aria-label="Historial de estados" tabindex="0">
                     <table class="data-table">

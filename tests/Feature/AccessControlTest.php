@@ -69,7 +69,7 @@ class AccessControlTest extends TestCase
         $this->post(route('documents.store', $e))->assertForbidden();
         $this->post(route('documents.replace', $version->document))->assertForbidden();
         $this->put(route('expedientes.update', $e))->assertForbidden();
-        $this->post(route('expedientes.status', $e), ['status' => 'CERRADO'])->assertForbidden();
+        $this->post(route('expedientes.status', $e), ['status' => 'ARCHIVADO'])->assertForbidden();
         $this->post(route('grants.store', $e))->assertForbidden();
         $this->post(route('expedientes.store'))->assertForbidden();
         $this->get(route('users.index'))->assertForbidden();
@@ -135,19 +135,17 @@ class AccessControlTest extends TestCase
         $this->assertSame(2, $doc->versions()->count());
     }
 
-    public function test_closed_and_archived_expedientes_are_protected(): void
+    public function test_archived_expedientes_are_protected(): void
     {
         $owner = $this->account('LOADER');
-        foreach ([ExpedienteStatus::Cerrado, ExpedienteStatus::Archivado] as $status) {
-            $e = $this->expediente($owner, $status);
-            $v = $this->document($e);
-            $this->actingAs($owner)->put(route('expedientes.update', $e), ['name' => 'Cambiado', 'type' => 'T'])->assertForbidden();
-            $this->assertSame('Expediente reservado', $e->fresh()->name);
-            $this->get(route('documents.file', $v))->assertOk();
-            $this->post(route('documents.store', $e))->assertForbidden();
-            $this->post(route('documents.replace', $v->document))->assertForbidden();
-            $this->post(route('documents.retire', $v->document), ['reason' => 'Motivo de prueba'])->assertForbidden();
-        }
+        $e = $this->expediente($owner, ExpedienteStatus::Archivado);
+        $v = $this->document($e);
+        $this->actingAs($owner)->put(route('expedientes.update', $e), ['name' => 'Cambiado', 'type' => 'T'])->assertForbidden();
+        $this->assertSame('Expediente reservado', $e->fresh()->name);
+        $this->get(route('documents.file', $v))->assertOk();
+        $this->post(route('documents.store', $e))->assertForbidden();
+        $this->post(route('documents.replace', $v->document))->assertForbidden();
+        $this->post(route('documents.retire', $v->document), ['reason' => 'Motivo de prueba'])->assertForbidden();
     }
 
     public function test_login_updates_last_access_and_logout_ends_session(): void

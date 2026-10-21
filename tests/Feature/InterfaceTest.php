@@ -64,7 +64,10 @@ class InterfaceTest extends TestCase
         $this->actingAs($loader)->get(route('expedientes.index'))->assertOk()
             ->assertDontSee('class="workspace-sidebar"', false)->assertSee('class="header-logout"', false)
             ->assertSee('Aún no hay expedientes')->assertSee('Crear expediente')->assertDontSee('Nuevo expediente')
-            ->assertSee('Aplicar filtros')->assertDontSee('class="header-link"', false)->assertDontSee('Cambiar contraseña');
+            ->assertSee('data-listado-dinamico', false)->assertSee('data-listado-resultados', false)
+            ->assertSee('data-limpiar-filtros', false)->assertSee('aria-label="Limpiar filtros"', false)
+            ->assertSee('icon-actualizar', false)
+            ->assertDontSee('class="header-link"', false)->assertDontSee('Cambiar contraseña');
         $this->get(route('users.create'))->assertForbidden();
     }
 

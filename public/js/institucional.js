@@ -117,6 +117,106 @@ document.addEventListener('DOMContentLoaded', () => {
         if (estado.open && tipoEstado === 'loading') estado.close();
     });
 
+    // Filtros sin recargar la página; conserva el foco al escribir.
+    document.querySelectorAll('[data-listado-dinamico]').forEach(listado => {
+        const formulario = listado.querySelector('form[role="search"]');
+        const resultados = listado.querySelector('[data-listado-resultados]');
+        const total = listado.querySelector('[data-listado-total]');
+        const aviso = listado.querySelector('[data-listado-aviso]');
+        let temporizador;
+        let solicitud;
+        let revision = 0;
+
+        const cancelar = () => {
+            clearTimeout(temporizador);
+            solicitud?.abort();
+            revision++;
+            resultados.removeAttribute('aria-busy');
+            aviso.hidden = true;
+        };
+        const urlFiltros = () => {
+            const url = new URL(formulario.action);
+            for (const [nombre, valor] of new FormData(formulario)) {
+                if (valor.trim()) url.searchParams.set(nombre, valor.trim());
+            }
+            return url;
+        };
+        const actualizar = async (url = urlFiltros()) => {
+            cancelar();
+            const desde = formulario.elements.namedItem('from');
+            const hasta = formulario.elements.namedItem('to');
+            hasta.setCustomValidity(desde.value && hasta.value && hasta.value < desde.value
+                ? 'La fecha final debe ser igual o posterior a la fecha inicial.' : '');
+            if (!formulario.reportValidity()) return;
+
+            solicitud = new AbortController();
+            const actual = revision;
+            resultados.setAttribute('aria-busy', 'true');
+            aviso.textContent = 'Actualizando expedientes…';
+            aviso.hidden = false;
+            try {
+                const respuesta = await fetch(url, {
+                    signal: solicitud.signal,
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (actual !== revision) return;
+                if (respuesta.redirected) {
+                    window.location.assign(respuesta.url);
+                    return;
+                }
+                if (!respuesta.ok) throw new Error('No se pudieron actualizar los expedientes. Intenta de nuevo.');
+                const pagina = new DOMParser().parseFromString(await respuesta.text(), 'text/html');
+                if (actual !== revision) return;
+                const nuevos = pagina.querySelector('[data-listado-resultados]');
+                const nuevoTotal = pagina.querySelector('[data-listado-total]');
+                if (!nuevos || !nuevoTotal) throw new Error('No se pudieron actualizar los expedientes. Intenta de nuevo.');
+                resultados.replaceChildren(...nuevos.childNodes);
+                total.textContent = nuevoTotal.textContent;
+                window.history.replaceState(null, '', url);
+                aviso.textContent = `${total.textContent.trim()}. Resultados actualizados.`;
+                aviso.classList.add('sr-only');
+            } catch (error) {
+                if (actual !== revision || error.name === 'AbortError') return;
+                aviso.classList.remove('sr-only');
+                aviso.textContent = error.message;
+            } finally {
+                if (actual === revision) resultados.removeAttribute('aria-busy');
+            }
+        };
+        formulario.addEventListener('input', event => {
+            if (event.target.name !== 'q') return;
+            cancelar();
+            if (!event.isComposing) temporizador = setTimeout(() => actualizar(), 350);
+        });
+        formulario.addEventListener('compositionend', () => {
+            cancelar();
+            temporizador = setTimeout(() => actualizar(), 350);
+        });
+        formulario.addEventListener('change', event => {
+            if (event.target.name !== 'q') actualizar();
+        });
+        formulario.addEventListener('submit', event => {
+            event.preventDefault();
+            actualizar();
+        });
+        listado.querySelector('[data-limpiar-filtros]').addEventListener('click', event => {
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            for (const campo of formulario.elements) {
+                if (campo.tagName === 'SELECT') campo.selectedIndex = 0;
+                else if (campo.tagName === 'INPUT') campo.value = '';
+            }
+            actualizar();
+        });
+        resultados.addEventListener('click', event => {
+            const enlace = event.target.closest('.table-pagination a');
+            if (!enlace || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            actualizar(new URL(enlace.href));
+        });
+        window.addEventListener('pagehide', cancelar);
+    });
+
     // Toasts con cierre y autocierre opcional.
     document.querySelectorAll('[data-toast]').forEach(toast => {
         const cerrar = () => { toast.classList.add('is-leaving'); setTimeout(() => toast.remove(), 200); };

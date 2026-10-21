@@ -9,7 +9,6 @@ use App\Models\Document;
 use App\Models\Expediente;
 use App\Models\User;
 use App\Support\Audit;
-use App\Support\Listing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -32,26 +31,21 @@ class ExpedienteController extends Controller
         $request->validate([
             'q' => 'nullable|string|max:150',
             'status' => ['nullable', Rule::enum(ExpedienteStatus::class)],
-            'type' => 'nullable|string|max:100',
             'responsible' => 'nullable|integer',
             'from' => 'nullable|date',
             'to' => 'nullable|date|after_or_equal:from',
-            'document_type' => ['nullable', Rule::in(config('expedientes.document_types'))],
             'sort' => ['nullable', Rule::in(array_keys(self::SORTS))],
-            'per_page' => Listing::perPageRule(),
         ]);
         $user = $request->user();
         [$column, $direction] = self::SORTS[$request->input('sort', 'recientes')];
         $expedientes = Expediente::visibleTo($user)->with('responsible')->withCount('documents')
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('folio', 'like', '%'.$request->q.'%')->orWhere('name', 'like', '%'.$request->q.'%')->orWhere('type', 'like', '%'.$request->q.'%')->orWhereHas('responsible', fn ($u) => $u->where('name', 'like', '%'.$request->q.'%'))))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
-            ->when($request->filled('type'), fn ($q) => $q->where('type', $request->type))
             ->when($request->filled('responsible'), fn ($q) => $q->where('responsible_id', $request->responsible))
             ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->from))
             ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->to))
-            ->when($request->filled('document_type'), fn ($q) => $q->whereHas('documents', fn ($d) => $d->where('type', $request->document_type)))
             ->orderBy($column, $direction)->orderBy('id', $direction)
-            ->paginate(Listing::perPage($request))->withQueryString();
+            ->paginate(10)->appends($request->only('q', 'status', 'responsible', 'from', 'to', 'sort'));
 
         $visible = Expediente::visibleTo($user);
         $types = (clone $visible)->distinct()->orderBy('type')->pluck('type');
@@ -62,14 +56,14 @@ class ExpedienteController extends Controller
         return view('expedientes.index', compact('expedientes', 'sharedDocuments', 'types', 'responsibles'));
     }
 
-    /** RF-EXP-001: solo LOADER; folio único generado; queda en borrador y su creador como responsable. */
+    /** RF-EXP-001: solo LOADER; folio único generado; queda activo y su creador como responsable. */
     public function store(Request $request)
     {
         Gate::authorize('create', Expediente::class);
-        $expediente = Expediente::create([...$this->data($request), 'folio' => (string) Str::uuid(), 'responsible_id' => $request->user()->id, 'status' => ExpedienteStatus::Borrador]);
+        $expediente = Expediente::create([...$this->data($request), 'folio' => (string) Str::uuid(), 'responsible_id' => $request->user()->id, 'status' => ExpedienteStatus::Activo]);
         Audit::record('expediente.created', "Creación del expediente {$expediente->folio}", $expediente, ['name' => $expediente->name, 'type' => $expediente->type]);
 
-        return redirect()->route('expedientes.show', $expediente)->with('status', 'Expediente creado en borrador.');
+        return redirect()->route('expedientes.show', $expediente)->with('status', 'Expediente creado en estado Activo.');
     }
 
     public function show(Request $request, Expediente $expediente)

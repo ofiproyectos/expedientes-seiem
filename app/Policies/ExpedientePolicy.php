@@ -22,7 +22,7 @@ class ExpedientePolicy
         return $user->isLoader();
     }
 
-    /** Edición ordinaria: metadatos, cargas, versiones, bajas y restauraciones. Cerrado y archivado quedan protegidos. */
+    /** Edición ordinaria: metadatos, cargas, versiones, bajas y restauraciones. Archivado queda protegido. */
     public function update(User $user, Expediente $expediente): bool
     {
         return $this->isResponsible($user, $expediente) && $expediente->isEditable();

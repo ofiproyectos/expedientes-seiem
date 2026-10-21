@@ -7,7 +7,7 @@ La aplicación usa Laravel 13, PHP 8.4 y MySQL. Las pantallas están construidas
 | Rol | Etiqueta | Puede |
 |---|---|---|
 | ADMIN | Administrador | Administrar usuarios y roles; conceder y revocar permisos de lectura y descarga; consultar todos los expedientes, sus versiones y la auditoría. **No** crea ni edita expedientes ni carga documentos. Cambia estados solo por **excepción**, con justificación obligatoria que queda marcada en la auditoría. |
-| LOADER | Cargador | Crear expedientes (queda como responsable) y, sobre los suyos en borrador o activo: editar metadatos, cargar documentos y versiones, clasificar, dar de baja y restaurar versiones; cambiar su estado. No asigna permisos. |
+| LOADER | Cargador | Crear expedientes (queda como responsable) y, sobre los suyos activos: editar metadatos, cargar documentos y versiones, clasificar, dar de baja y restaurar versiones; archivarlos. No asigna permisos. |
 | READER | Lector | Consultar únicamente lo que el ADMIN le comparte (expediente completo o documento), solo en su versión vigente; descargar si el permiso lo autoriza. |
 
 Un cambio de rol o la desactivación aplican en la siguiente petición: el rol se lee de la base en cada solicitud, la desactivación cierra las sesiones y el middleware rechaza cuentas inactivas. Un usuario reactivado conserva solo los permisos que sigan vigentes.
@@ -15,7 +15,7 @@ Un cambio de rol o la desactivación aplican en la siguiente petición: el rol s
 ## Decisiones
 
 - **Acceso:** nombre de usuario único (minúsculas, letras, números, `.`, `-`, `_`) y contraseña; sin correo. No hay recuperación por correo: el ADMIN restablece la contraseña (restablecimiento administrativo de RF-AUT-005) y cada usuario puede cambiar la suya con la contraseña actual. Cinco intentos fallidos bloquean 15 minutos la combinación usuario + IP.
-- **Estados del expediente:** Borrador → Activo → Cerrado → Archivado; Cerrado puede volver a Activo; Archivado es final. Solo Borrador y Activo admiten modificaciones. Al crearse queda en Borrador. La migración convierte los archivados previos a ARCHIVADO y el resto a ACTIVO.
+- **Estados del expediente:** Activo → Archivado; Archivado es final. Solo Activo admite modificaciones. Al crearse queda en Activo. La migración convierte los borradores existentes a ACTIVO y los cerrados a ARCHIVADO; conserva los activos y archivados existentes.
 - **Folio:** UUID generado; ni el folio ni el identificador interno se modifican.
 - **Documentos:** uno o varios archivos por envío (máximo 20); todo el lote se acepta o se rechaza. Tipo del catálogo `config/expedientes.php`; título (por defecto, el nombre del archivo) y descripción opcional, editables después.
 - **Duplicados:** se detectan por SHA-256 en el historial completo del expediente, incluidos documentos dados de baja. La **restauración** de una versión es la excepción: copia el archivo como versión nueva marcada «Restaurado desde la versión N».

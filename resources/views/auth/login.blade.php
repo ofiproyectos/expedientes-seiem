@@ -13,5 +13,4 @@
         </div>
         <button class="btn-primary btn-block access-submit" type="submit">Iniciar sesión</button>
     </form>
-    <p class="access-link muted">¿Olvidaste tu contraseña? Solicita a un administrador que la restablezca.</p>
 </x-layouts.acceso>

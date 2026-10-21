@@ -19,7 +19,7 @@ En una instalación nueva: `composer install`, copiar `.env.example` a `.env`, c
 Se inicia sesión con **nombre de usuario y contraseña** (no se usa correo).
 
 1. El ADMIN crea las cuentas en **Usuarios y permisos** (nombre completo, nombre de usuario, rol ADMIN, LOADER o READER, estado y contraseña).
-2. Un LOADER crea el expediente (queda en *Borrador*, con él como responsable), carga uno o varios documentos con su tipo y lo pasa a *Activo*.
+2. Un LOADER crea el expediente (queda en *Activo*, con él como responsable) y carga uno o varios documentos con su tipo. Al concluir, puede pasarlo a *Archivado*.
 3. El ADMIN concede lectura a un READER sobre el expediente completo o un documento, con descarga opcional.
 4. El ADMIN consulta todo el historial en **Auditoría**.
 

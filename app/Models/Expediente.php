@@ -10,7 +10,7 @@ class Expediente extends Model
 {
     protected $guarded = ['id'];
 
-    protected $attributes = ['status' => 'BORRADOR'];
+    protected $attributes = ['status' => 'ACTIVO'];
 
     protected function casts(): array
     {

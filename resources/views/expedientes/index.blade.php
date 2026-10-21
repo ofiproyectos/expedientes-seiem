@@ -1,4 +1,4 @@
-@php($filtrando = collect(request()->only('q', 'status', 'type', 'responsible', 'from', 'to', 'document_type'))->filter(fn ($v) => filled($v))->isNotEmpty())
+@php($filtrando = collect(request()->only('q', 'status', 'responsible', 'from', 'to'))->filter(fn ($v) => filled($v))->isNotEmpty())
 <x-layouts.institucional titulo="Expedientes">
     <div class="page-title">
         <div>
@@ -10,7 +10,7 @@
     @can('create', App\Models\Expediente::class)
         <details class="card disclosure" @if($errors->hasAny(['name', 'type', 'description'])) open @endif>
             <summary><x-ui.icono nombre="agregar"/>Crear expediente</summary>
-            <p class="form-hint">El folio se genera automáticamente y el expediente se crea en estado <strong>Borrador</strong> con usted como responsable. Los campos marcados con <span class="required" aria-hidden="true">*</span> son obligatorios.</p>
+            <p class="form-hint">El folio se genera automáticamente y el expediente se crea en estado <strong>Activo</strong> con usted como responsable. Los campos marcados con <span class="required" aria-hidden="true">*</span> son obligatorios.</p>
             <form method="POST" action="{{ route('expedientes.store') }}" data-cargando="Creando expediente…">
                 @csrf
                 <div class="form-grid two">
@@ -39,11 +39,11 @@
         </details>
     @endcan
 
-    <section class="card" aria-labelledby="titulo-listado">
+    <section class="card" aria-labelledby="titulo-listado" data-listado-dinamico>
         <div class="requests-header">
             <div>
                 <div class="section-title"><x-ui.icono nombre="documento"/><h2 id="titulo-listado">Listado</h2></div>
-                <span class="muted">{{ $expedientes->total() }} {{ $expedientes->total() === 1 ? 'expediente' : 'expedientes' }}</span>
+                <span class="muted" data-listado-total>{{ $expedientes->total() }} {{ $expedientes->total() === 1 ? 'expediente' : 'expedientes' }}</span>
             </div>
         </div>
 
@@ -59,13 +59,6 @@
                     @foreach(App\Enums\ExpedienteStatus::cases() as $estado)<option value="{{ $estado->value }}" @selected(request('status') === $estado->value)>{{ $estado->label() }}</option>@endforeach
                 </select>
             </div>
-            <div class="form-field">
-                <label for="filtro-type">Tipo de expediente</label>
-                <select class="input-text" id="filtro-type" name="type">
-                    <option value="">Todos</option>
-                    @foreach($types as $type)<option @selected(request('type') === $type)>{{ $type }}</option>@endforeach
-                </select>
-            </div>
             @if($responsibles->count() > 1)
                 <div class="form-field">
                     <label for="filtro-responsible">Responsable</label>
@@ -75,13 +68,6 @@
                     </select>
                 </div>
             @endif
-            <div class="form-field">
-                <label for="filtro-document-type">Tipo de documento</label>
-                <select class="input-text" id="filtro-document-type" name="document_type">
-                    <option value="">Todos</option>
-                    @foreach(config('expedientes.document_types') as $type)<option @selected(request('document_type') === $type)>{{ $type }}</option>@endforeach
-                </select>
-            </div>
             <div class="form-field">
                 <label for="filtro-from">Creado desde</label>
                 <input class="input-text" id="filtro-from" type="date" name="from" value="{{ request('from') }}">
@@ -96,13 +82,14 @@
                     @foreach(App\Http\Controllers\ExpedienteController::SORTS as $clave => [, , $etiqueta])<option value="{{ $clave }}" @selected(request('sort', 'recientes') === $clave)>{{ $etiqueta }}</option>@endforeach
                 </select>
             </div>
-            <x-per-page/>
             <div class="form-actions">
-                <x-ui.boton type="submit"><x-ui.icono nombre="buscar" class="icono-sm"/>Aplicar filtros</x-ui.boton>
-                @if($filtrando)<x-ui.boton variante="secondary" :href="route('expedientes.index')">Limpiar filtros</x-ui.boton>@endif
+                <x-ui.boton variante="secondary" :href="route('expedientes.index')" data-limpiar-filtros title="Limpiar filtros" aria-label="Limpiar filtros"><x-ui.icono nombre="actualizar" class="icono-sm"/></x-ui.boton>
+                <noscript><x-ui.boton type="submit">Aplicar filtros</x-ui.boton></noscript>
             </div>
         </form>
 
+        <p class="muted" role="status" data-listado-aviso hidden></p>
+        <div data-listado-resultados>
         <div class="table-scroll" role="region" aria-labelledby="titulo-listado" tabindex="0">
             <table class="data-table requests-table">
                 <thead>
@@ -153,6 +140,7 @@
             </table>
         </div>
         {{ $expedientes->links('pagination.institucional') }}
+        </div>
     </section>
 
     @if($sharedDocuments->isNotEmpty())

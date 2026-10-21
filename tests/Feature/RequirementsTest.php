@@ -9,6 +9,7 @@ use App\Models\Expediente;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -130,7 +131,7 @@ class RequirementsTest extends TestCase
     }
 
     // RF-EXP-001 / RF-EXP-002
-    public function test_only_loader_creates_expedientes_in_draft_and_admin_cannot_edit(): void
+    public function test_only_loader_creates_active_expedientes_and_admin_cannot_edit(): void
     {
         $admin = $this->account('ADMIN');
         $this->actingAs($admin)->post(route('expedientes.store'), ['name' => 'X', 'type' => 'T'])->assertForbidden();
@@ -138,7 +139,7 @@ class RequirementsTest extends TestCase
         $this->actingAs($loader)->post(route('expedientes.store'), ['type' => 'Personal'])->assertSessionHasErrors('name');
         $this->post(route('expedientes.store'), ['name' => 'Ingreso 2026', 'type' => 'Personal'])->assertSessionHasNoErrors();
         $e = Expediente::firstOrFail();
-        $this->assertSame(ExpedienteStatus::Borrador, $e->status);
+        $this->assertSame(ExpedienteStatus::Activo, $e->status);
         $this->assertSame($loader->id, $e->responsible_id);
         $this->assertTrue(Str::isUuid($e->folio));
         $this->get(route('expedientes.show', $e))->assertOk();
@@ -154,12 +155,15 @@ class RequirementsTest extends TestCase
     public function test_status_machine_rejects_invalid_transitions_and_admin_needs_justification(): void
     {
         $loader = $this->account('LOADER');
-        $e = $this->expediente($loader, ExpedienteStatus::Borrador);
-        $this->actingAs($loader)->post(route('expedientes.status', $e), ['status' => 'ARCHIVADO'])->assertSessionHasErrors('status');
-        $this->assertSame(ExpedienteStatus::Borrador, $e->fresh()->status);
-        foreach (['ACTIVO', 'CERRADO', 'ACTIVO', 'CERRADO'] as $to) {
-            $this->post(route('expedientes.status', $e), ['status' => $to])->assertSessionHasNoErrors();
+        $e = $this->expediente($loader);
+        $this->actingAs($loader)->post(route('expedientes.status', $e), ['status' => 'ACTIVO'])->assertSessionHasErrors('status');
+        foreach (['BORRADOR', 'CERRADO'] as $to) {
+            $this->post(route('expedientes.status', $e), ['status' => $to])->assertSessionHasErrors('status');
         }
+        $this->assertSame(ExpedienteStatus::Activo, $e->fresh()->status);
+        $this->post(route('expedientes.status', $e), ['status' => 'ARCHIVADO'])->assertSessionHasNoErrors();
+        $this->assertSame(ExpedienteStatus::Archivado, $e->fresh()->status);
+        $e = $this->expediente($loader);
         $admin = $this->account('ADMIN');
         $this->actingAs($admin)->post(route('expedientes.status', $e), ['status' => 'ARCHIVADO'])->assertSessionHasErrors('reason');
         $this->post(route('expedientes.status', $e), ['status' => 'ARCHIVADO', 'reason' => 'Instrucción de la dirección'])->assertSessionHasNoErrors();
@@ -167,10 +171,45 @@ class RequirementsTest extends TestCase
         $this->actingAs($loader)->post(route('expedientes.status', $e), ['status' => 'ACTIVO'])->assertSessionHasErrors('status');
 
         $history = AuditEvent::where('action', 'expediente.status_changed')->where('result', 'success')->orderBy('id')->get();
-        $this->assertSame(5, $history->count());
+        $this->assertSame(2, $history->count());
         $this->assertTrue($history->last()->metadata['exception']);
         $this->assertSame('Instrucción de la dirección', $history->last()->metadata['reason']);
         $this->assertSame(2, AuditEvent::where('action', 'expediente.status_changed')->where('result', 'denied')->count());
+    }
+
+    public function test_only_active_and_archived_statuses_are_available(): void
+    {
+        $loader = $this->account('LOADER');
+        $this->assertSame(['ACTIVO', 'ARCHIVADO'], array_column(ExpedienteStatus::cases(), 'value'));
+        $this->actingAs($loader)->get(route('expedientes.index'))
+            ->assertOk()->assertSee('value="ACTIVO"', false)->assertSee('value="ARCHIVADO"', false)
+            ->assertDontSee('Borrador')->assertDontSee('Cerrado');
+        foreach (['BORRADOR', 'CERRADO'] as $status) {
+            $this->get(route('expedientes.index', ['status' => $status]))->assertSessionHasErrors('status');
+        }
+    }
+
+    public function test_migration_converts_legacy_statuses_and_defaults_to_active(): void
+    {
+        $loader = $this->account('LOADER');
+        $records = [];
+        foreach (['BORRADOR', 'CERRADO', 'ACTIVO', 'ARCHIVADO'] as $status) {
+            $e = $this->expediente($loader);
+            DB::table('expedientes')->where('id', $e->id)->update(['status' => $status]);
+            $records[$status] = $e;
+        }
+
+        $migration = require database_path('migrations/2026_10_21_000001_simplify_expediente_statuses.php');
+        $migration->up();
+
+        foreach ($records as $before => $e) {
+            $expected = in_array($before, ['BORRADOR', 'ACTIVO']) ? ExpedienteStatus::Activo : ExpedienteStatus::Archivado;
+            $this->assertSame($expected, $e->fresh()->status);
+        }
+        $id = DB::table('expedientes')->insertGetId([
+            'folio' => (string) Str::uuid(), 'name' => 'Sin estado explícito', 'type' => 'Personal', 'responsible_id' => $loader->id,
+        ]);
+        $this->assertSame(ExpedienteStatus::Activo, Expediente::findOrFail($id)->status);
     }
 
     // RF-DOC-001 / RF-DOC-002
@@ -248,18 +287,33 @@ class RequirementsTest extends TestCase
         $loader = $this->account('LOADER', ['name' => 'Carla']);
         $other = $this->account('LOADER', ['name' => 'Otro']);
         $a = $this->expediente($loader, ExpedienteStatus::Activo, ['name' => 'Alfa', 'type' => 'Personal']);
-        $b = $this->expediente($loader, ExpedienteStatus::Cerrado, ['name' => 'Beta', 'type' => 'Laboral']);
+        $b = $this->expediente($loader, ExpedienteStatus::Archivado, ['name' => 'Beta', 'type' => 'Laboral']);
         $this->expediente($other, ExpedienteStatus::Activo, ['name' => 'Ajeno', 'type' => 'Personal']);
         $a->documents()->create(['name' => 'Acta', 'type' => 'Acta de nacimiento']);
 
         $this->actingAs($loader)->get(route('expedientes.index'))->assertSee('Alfa')->assertSee('Beta')->assertDontSee('Ajeno')->assertSee('2 expedientes');
         $this->get(route('expedientes.index', ['q' => $b->folio]))->assertSee('Beta')->assertDontSee('Alfa');
-        $this->get(route('expedientes.index', ['status' => 'CERRADO', 'type' => 'Laboral']))->assertSee('Beta')->assertDontSee('>Alfa<', false);
-        $this->get(route('expedientes.index', ['document_type' => 'Acta de nacimiento']))->assertSee('Alfa')->assertDontSee('Beta');
+        $this->withHeaders(['Accept' => 'application/json', 'X-Requested-With' => 'XMLHttpRequest'])
+            ->get(route('expedientes.index', ['q' => 'Alfa']))
+            ->assertOk()->assertSee('data-listado-resultados', false)->assertSee('Alfa')
+            ->assertDontSee('Beta')->assertDontSee('Ajeno');
+        $this->flushHeaders();
+        $this->get(route('expedientes.index', ['status' => 'ARCHIVADO']))->assertSee('Beta')->assertDontSee('>Alfa<', false);
         $this->get(route('expedientes.index', ['sort' => 'titulo']))->assertSeeInOrder(['Alfa', 'Beta']);
         $this->get(route('expedientes.index', ['sort' => 'titulo_desc']))->assertSeeInOrder(['Beta', 'Alfa']);
         $this->get(route('expedientes.index', ['q' => 'Ajeno']))->assertSee('Sin coincidencias');
-        $this->get(route('expedientes.index', ['per_page' => 10, 'status' => 'ACTIVO']))->assertSee('value="10" selected', false)->assertSee('1–1 de 1');
+        $this->get(route('expedientes.index', ['status' => 'ACTIVO']))->assertSee('1–1 de 1');
+        for ($i = 0; $i < 9; $i++) {
+            $this->expediente($loader);
+        }
+        $this->get(route('expedientes.index', ['per_page' => 25, 'type' => 'Laboral', 'document_type' => 'INE', 'sort' => 'titulo']))
+            ->assertOk()->assertSee('1–10 de 11')->assertSee('Página 1 de 2')
+            ->assertDontSee('id="filtro-type"', false)->assertDontSee('id="filtro-document-type"', false)
+            ->assertDontSee('name="per_page"', false)
+            ->assertViewHas('expedientes', fn ($items) => $items->perPage() === 10 && $items->count() === 10 && $items->total() === 11);
+        $this->get(route('expedientes.index', ['page' => 2, 'sort' => 'titulo']))
+            ->assertOk()->assertSee('11–11 de 11')->assertDontSee('Ajeno')
+            ->assertViewHas('expedientes', fn ($items) => $items->count() === 1);
     }
 
     // RF-AUD-001 CA-03 / RF-AUD-002 / RF-AUD-003
