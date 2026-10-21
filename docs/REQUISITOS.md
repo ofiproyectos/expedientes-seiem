@@ -6,17 +6,19 @@ La aplicación usa Laravel 13, PHP 8.4 y MySQL. Las pantallas están construidas
 
 | Rol | Etiqueta | Puede |
 |---|---|---|
-| ADMIN | Administrador | Administrar usuarios y roles; conceder y revocar permisos de lectura y descarga; consultar todos los expedientes, sus versiones y la auditoría. **No** crea ni edita expedientes ni carga documentos. Cambia estados solo por **excepción**, con justificación obligatoria que queda marcada en la auditoría. |
-| LOADER | Cargador | Crear expedientes (queda como responsable) y, sobre los suyos activos: editar metadatos, cargar documentos y versiones, clasificar, dar de baja y restaurar versiones; archivarlos. No asigna permisos. |
+| ADMIN | Administrador | Administrar usuarios y roles; conceder y revocar permisos de lectura y descarga; consultar todos los expedientes, sus versiones y la auditoría. **No** crea ni edita expedientes ni carga documentos. |
+| LOADER | Cargador | Crear expedientes (queda como responsable) y, sobre los suyos: editar metadatos, cargar documentos y versiones, clasificar, dar de baja y restaurar versiones. No asigna permisos. |
 | READER | Lector | Consultar únicamente lo que el ADMIN le comparte (expediente completo o documento), solo en su versión vigente; descargar si el permiso lo autoriza. |
 
 Un cambio de rol o la desactivación aplican en la siguiente petición: el rol se lee de la base en cada solicitud, la desactivación cierra las sesiones y el middleware rechaza cuentas inactivas. Un usuario reactivado conserva solo los permisos que sigan vigentes.
 
 ## Decisiones
 
+- **Navegación:** el administrador y el cargador usan el mismo menú lateral, con opciones según sus permisos. El lector no tiene menú lateral porque solo consulta expedientes: su contenido ocupa todo el ancho y cierra sesión desde la barra superior. El cargador tiene «Expedientes» y «Crear expediente» en páginas separadas; al crear se abre el detalle para cargar documentos.
 - **Acceso:** nombre de usuario único (minúsculas, letras, números, `.`, `-`, `_`) y contraseña; sin correo. No hay recuperación por correo: el ADMIN restablece la contraseña (restablecimiento administrativo de RF-AUT-005) y cada usuario puede cambiar la suya con la contraseña actual. Cinco intentos fallidos bloquean 15 minutos la combinación usuario + IP.
-- **Estados del expediente:** Activo → Archivado; Archivado es final. Solo Activo admite modificaciones. Al crearse queda en Activo. La migración convierte los borradores existentes a ACTIVO y los cerrados a ARCHIVADO; conserva los activos y archivados existentes.
-- **Folio:** UUID generado; ni el folio ni el identificador interno se modifican.
+- **Estados del expediente:** retirados por solicitud del usuario (no se usa el archivado). El expediente no tiene estado: su responsable puede modificarlo siempre. La migración `2026_10_21_000003` elimina la columna `status`; la acción «Cambio de estado» también se retiró del catálogo de auditoría (no había eventos registrados).
+- **Folio:** consecutivo anual `EXP-AAAA-NNNNNN` (p. ej., `EXP-2026-000001`), asignado por el sistema al crear el expediente desde el contador `expediente_folios` con bloqueo y en la misma transacción que el alta. Ni el folio ni el identificador interno se modifican. La migración `2026_10_21_000002` renumeró los expedientes existentes por fecha de creación.
+- **Tipo de expediente:** no existe; el sistema maneja un solo tipo. Los documentos sí conservan su tipo del catálogo.
 - **Documentos:** uno o varios archivos por envío (máximo 20); todo el lote se acepta o se rechaza. Tipo del catálogo `config/expedientes.php`; título (por defecto, el nombre del archivo) y descripción opcional, editables después.
 - **Duplicados:** se detectan por SHA-256 en el historial completo del expediente, incluidos documentos dados de baja. La **restauración** de una versión es la excepción: copia el archivo como versión nueva marcada «Restaurado desde la versión N».
 - **Baja lógica:** el documento desaparece de las consultas ordinarias y del acceso de lectores; se conservan versiones, responsable, fecha y motivo, visibles para ADMIN y el LOADER responsable.
@@ -39,10 +41,10 @@ Pruebas en `tests/Feature/RequirementsTest.php` (R) y `tests/Feature/AccessContr
 | RF-AUT-005 Cambio de contraseña propia | Retirado del alcance por solicitud del usuario; sin página ni rutas | R `removed_password_change_page_and_endpoint_are_not_available` |
 | RF-USR-001/002/003/004 | `UserController::save` | R `user_registration_and_role_changes…`, A `admin_manages_users…` |
 | RF-USR-005 Consulta de usuarios | `UserController::index` | R `users_can_be_searched…` |
-| RF-EXP-001/002/003 | `ExpedienteController::store/update/show` | R `only_loader_creates…`, A `closed_and_archived…` |
-| RF-EXP-004 Estados | `ExpedienteStatus`, `ExpedienteController::changeStatus` | R `status_machine…` |
+| RF-EXP-001/002/003 | `ExpedienteController::store/update/show` | R `only_loader_creates…` |
+| RF-EXP-004 Estados | Retirado del alcance por solicitud del usuario; sin estado, ruta ni pantalla de archivado | R `only_loader_creates…` (comprueba que no existen la ruta ni la columna) |
 | RF-DOC-001/002 Carga y clasificación | `DocumentController::store/update` | R `multiple_files_upload…`, A `owner_uploads_versions…` |
-| RF-DOC-003 Metadatos | `expedientes/document.blade.php` | R `versions_history…` |
+| RF-DOC-003 Metadatos | `expedientes/documents-table.blade.php`, `expedientes/document-dialogs.blade.php` | R `versions_history…` |
 | RF-DOC-004 Baja lógica | `DocumentController::retire` | R `document_retirement…` |
 | RF-PRM-001/002/003/004 | `AccessGrantController`, `partials/grants-table` | R `permissions_report_grantor…`, A `admin_grants_and_revokes…`, `expired_future…` |
 | RF-VIS-001/002 | `DocumentController::viewer/file` | R `viewer_shows_pdf…` |

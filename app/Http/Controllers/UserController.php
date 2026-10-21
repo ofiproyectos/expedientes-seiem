@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Support\Audit;
-use App\Support\Listing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -13,16 +12,14 @@ use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
-    /** RF-USR-005: búsqueda por nombre o usuario, filtros de rol y estado, paginación. */
+    /** RF-USR-005: búsqueda por nombre o usuario y paginación fija. */
     public function index(Request $request)
     {
         $this->authorizeAdmin($request);
-        $request->validate(['q' => 'nullable|string|max:100', 'role' => ['nullable', Rule::in(User::ROLES)], 'status' => 'nullable|in:active,inactive', 'per_page' => Listing::perPageRule()]);
+        $request->validate(['q' => 'nullable|string|max:100']);
         $users = User::query()
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$request->q.'%')->orWhere('username', 'like', '%'.$request->q.'%')))
-            ->when($request->filled('role'), fn ($q) => $q->where('role', $request->role))
-            ->when($request->filled('status'), fn ($q) => $q->where('is_active', $request->status === 'active'))
-            ->orderBy('name')->paginate(Listing::perPage($request))->withQueryString();
+            ->orderBy('name')->orderBy('id')->paginate(10)->appends($request->only('q'));
 
         return view('users', compact('users'));
     }

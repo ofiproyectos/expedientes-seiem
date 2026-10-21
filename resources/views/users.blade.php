@@ -1,4 +1,3 @@
-@php($filtrando = collect(request()->only('q', 'role', 'status'))->filter(fn ($v) => filled($v))->isNotEmpty())
 <x-layouts.institucional titulo="Usuarios y permisos">
     <div class="page-title">
         <div>
@@ -8,11 +7,11 @@
         <x-ui.boton :href="route('users.create')"><x-ui.icono nombre="agregar" class="icono-sm"/>Crear usuario</x-ui.boton>
     </div>
 
-    <section class="card" aria-labelledby="titulo-usuarios">
+    <section class="card" aria-labelledby="titulo-usuarios" data-listado-dinamico>
         <div class="requests-header">
             <div>
                 <div class="section-title"><x-ui.icono nombre="usuarios"/><h2 id="titulo-usuarios">Usuarios</h2></div>
-                <span class="muted">{{ $users->total() }} {{ $users->total() === 1 ? 'cuenta' : 'cuentas' }}</span>
+                <span class="muted" data-listado-total>{{ $users->total() }} {{ $users->total() === 1 ? 'cuenta' : 'cuentas' }}</span>
             </div>
         </div>
 
@@ -21,28 +20,14 @@
                 <label for="usuarios-q">Nombre o usuario</label>
                 <div class="input-icon"><x-ui.icono nombre="buscar"/><input class="input-text" id="usuarios-q" name="q" value="{{ request('q') }}" maxlength="100" placeholder="Buscar usuario"></div>
             </div>
-            <div class="form-field">
-                <label for="usuarios-role">Rol</label>
-                <select class="input-text" id="usuarios-role" name="role">
-                    <option value="">Todos</option>
-                    @foreach(config('expedientes.roles') as $valor => $etiqueta)<option value="{{ $valor }}" @selected(request('role') === $valor)>{{ $etiqueta }}</option>@endforeach
-                </select>
-            </div>
-            <div class="form-field">
-                <label for="usuarios-status">Acceso</label>
-                <select class="input-text" id="usuarios-status" name="status">
-                    <option value="">Todos</option>
-                    <option value="active" @selected(request('status') === 'active')>Activo</option>
-                    <option value="inactive" @selected(request('status') === 'inactive')>Desactivado</option>
-                </select>
-            </div>
-            <x-per-page/>
             <div class="form-actions">
-                <x-ui.boton type="submit"><x-ui.icono nombre="buscar" class="icono-sm"/>Aplicar filtros</x-ui.boton>
-                @if($filtrando)<x-ui.boton variante="secondary" :href="route('users.index')">Limpiar filtros</x-ui.boton>@endif
+                <x-ui.boton variante="secondary" :href="route('users.index')" data-limpiar-filtros title="Limpiar filtros" aria-label="Limpiar filtros"><x-ui.icono nombre="actualizar" class="icono-sm"/></x-ui.boton>
+                <noscript><x-ui.boton type="submit">Buscar</x-ui.boton></noscript>
             </div>
         </form>
 
+        <p class="muted" role="status" data-listado-aviso hidden></p>
+        <div data-listado-resultados>
         <div class="table-scroll" role="region" aria-labelledby="titulo-usuarios" tabindex="0">
             <table class="data-table">
                 <thead>
@@ -66,7 +51,7 @@
                     @empty
                         <tr>
                             <td colspan="5" class="empty-state-cell">
-                                <div class="empty-state"><x-ui.icono nombre="buscar"/><h3>Sin coincidencias</h3><p>Ningún usuario coincide con la búsqueda o los filtros.</p></div>
+                                <div class="empty-state"><x-ui.icono nombre="buscar"/><h3>Sin coincidencias</h3><p>Ningún usuario coincide con la búsqueda.</p></div>
                             </td>
                         </tr>
                     @endforelse
@@ -74,5 +59,6 @@
             </table>
         </div>
         {{ $users->links('pagination.institucional') }}
+        </div>
     </section>
 </x-layouts.institucional>

@@ -22,15 +22,10 @@ class ExpedientePolicy
         return $user->isLoader();
     }
 
-    /** Edición ordinaria: metadatos, cargas, versiones, bajas y restauraciones. Archivado queda protegido. */
+    /** Edición ordinaria: metadatos, cargas, versiones, bajas y restauraciones. */
     public function update(User $user, Expediente $expediente): bool
     {
-        return $this->isResponsible($user, $expediente) && $expediente->isEditable();
-    }
-
-    public function changeStatus(User $user, Expediente $expediente): bool
-    {
-        return $user->isAdmin() || $this->isResponsible($user, $expediente);
+        return $this->isResponsible($user, $expediente);
     }
 
     /** Historial de versiones y documentos dados de baja (RF-VER-002). */

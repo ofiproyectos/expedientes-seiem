@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Enums\ExpedienteStatus;
 use App\Models\AccessGrant;
 use App\Models\DocumentVersion;
 use App\Models\Expediente;
@@ -22,9 +21,9 @@ class AccessControlTest extends TestCase
         return User::factory()->create(['role' => $role, 'is_active' => true]);
     }
 
-    private function expediente(User $owner, ExpedienteStatus $status = ExpedienteStatus::Activo): Expediente
+    private function expediente(User $owner): Expediente
     {
-        return Expediente::create(['folio' => (string) Str::uuid(), 'name' => 'Expediente reservado', 'type' => 'Personal', 'responsible_id' => $owner->id, 'status' => $status]);
+        return Expediente::create(['name' => 'Expediente reservado', 'responsible_id' => $owner->id]);
     }
 
     private function document(Expediente $e): DocumentVersion
@@ -69,7 +68,6 @@ class AccessControlTest extends TestCase
         $this->post(route('documents.store', $e))->assertForbidden();
         $this->post(route('documents.replace', $version->document))->assertForbidden();
         $this->put(route('expedientes.update', $e))->assertForbidden();
-        $this->post(route('expedientes.status', $e), ['status' => 'ARCHIVADO'])->assertForbidden();
         $this->post(route('grants.store', $e))->assertForbidden();
         $this->post(route('expedientes.store'))->assertForbidden();
         $this->get(route('users.index'))->assertForbidden();
@@ -114,7 +112,7 @@ class AccessControlTest extends TestCase
     public function test_loader_cannot_change_another_owners_expediente(): void
     {
         $e = $this->expediente($this->account('LOADER'));
-        $this->actingAs($this->account('LOADER'))->put(route('expedientes.update', $e), ['name' => 'X', 'type' => 'T'])->assertForbidden();
+        $this->actingAs($this->account('LOADER'))->put(route('expedientes.update', $e), ['name' => 'X'])->assertForbidden();
         $this->get(route('expedientes.show', $e))->assertForbidden();
         $this->get(route('users.index'))->assertForbidden();
     }
@@ -133,19 +131,6 @@ class AccessControlTest extends TestCase
         $this->post(route('documents.store', $e), ['type' => 'INE', 'files' => [UploadedFile::fake()->createWithContent('fake.pdf', '<?php echo 1;')]])->assertSessionHasErrors('files');
         $this->assertSame(1, $e->documents()->count());
         $this->assertSame(2, $doc->versions()->count());
-    }
-
-    public function test_archived_expedientes_are_protected(): void
-    {
-        $owner = $this->account('LOADER');
-        $e = $this->expediente($owner, ExpedienteStatus::Archivado);
-        $v = $this->document($e);
-        $this->actingAs($owner)->put(route('expedientes.update', $e), ['name' => 'Cambiado', 'type' => 'T'])->assertForbidden();
-        $this->assertSame('Expediente reservado', $e->fresh()->name);
-        $this->get(route('documents.file', $v))->assertOk();
-        $this->post(route('documents.store', $e))->assertForbidden();
-        $this->post(route('documents.replace', $v->document))->assertForbidden();
-        $this->post(route('documents.retire', $v->document), ['reason' => 'Motivo de prueba'])->assertForbidden();
     }
 
     public function test_login_updates_last_access_and_logout_ends_session(): void

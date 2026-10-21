@@ -33,3 +33,7 @@
         </tbody>
     </table>
 </div>
+{{-- Con paginador, el pie lo dibuja pagination/institucional. --}}
+@unless($events instanceof Illuminate\Contracts\Pagination\Paginator)
+    <x-ui.pie-tabla :total="$events->count()"/>
+@endunless

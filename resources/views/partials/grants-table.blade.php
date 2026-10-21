@@ -39,10 +39,11 @@
             @empty
                 <tr>
                     <td colspan="{{ $revocable ? 7 : 6 }}" class="empty-state-cell">
-                        <div class="empty-state"><x-ui.icono nombre="candado"/><h3>Sin permisos asignados</h3><p>Los permisos de lectura se asignan desde cada expediente.</p></div>
+                        <div class="empty-state"><x-ui.icono nombre="candado"/><h3>Sin permisos asignados</h3><p>{{ $mostrarExpediente ? 'Los permisos de lectura se asignan desde cada expediente.' : 'Usa «Asignar permiso» para conceder acceso a un lector.' }}</p></div>
                     </td>
                 </tr>
             @endforelse
         </tbody>
     </table>
 </div>
+<x-ui.pie-tabla :total="$grants->count()"/>

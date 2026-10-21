@@ -2,19 +2,33 @@
 
 namespace App\Models;
 
-use App\Enums\ExpedienteStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Expediente extends Model
 {
     protected $guarded = ['id'];
 
-    protected $attributes = ['status' => 'ACTIVO'];
-
-    protected function casts(): array
+    protected static function booted(): void
     {
-        return ['status' => ExpedienteStatus::class];
+        static::creating(function (self $expediente) {
+            $expediente->folio ??= self::nextFolio();
+        });
+    }
+
+    /** Folio EXP-AAAA-NNNNNN: consecutivo por año, tomado del contador con bloqueo para que dos altas simultáneas no lo repitan. */
+    public static function nextFolio(): string
+    {
+        $year = (int) now()->format('Y');
+
+        return DB::transaction(function () use ($year) {
+            DB::table('expediente_folios')->insertOrIgnore(['year' => $year, 'last' => 0]);
+            $next = DB::table('expediente_folios')->where('year', $year)->lockForUpdate()->value('last') + 1;
+            DB::table('expediente_folios')->where('year', $year)->update(['last' => $next]);
+
+            return sprintf('EXP-%d-%06d', $year, $next);
+        });
     }
 
     public function responsible()
@@ -30,11 +44,6 @@ class Expediente extends Model
     public function grants()
     {
         return $this->hasMany(AccessGrant::class);
-    }
-
-    public function isEditable(): bool
-    {
-        return $this->status->isEditable();
     }
 
     /** ADMIN consulta todos; LOADER los que tiene bajo su responsabilidad; READER los compartidos completos. */

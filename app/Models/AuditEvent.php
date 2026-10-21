@@ -23,7 +23,6 @@ class AuditEvent extends Model
         'user.password_reset' => 'Restablecimiento de contraseña',
         'expediente.created' => 'Creación de expediente',
         'expediente.updated' => 'Modificación de expediente',
-        'expediente.status_changed' => 'Cambio de estado',
         'document.uploaded' => 'Carga de documento',
         'document.updated' => 'Modificación de clasificación',
         'document.retired' => 'Baja de documento',

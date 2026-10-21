@@ -25,6 +25,8 @@
         'camara' => 'M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
         'actualizar' => 'M21 12a9 9 0 1 1-3-6.7M21 4v5h-5',
         'devolver' =>'M9 14L4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+        'opciones' => 'M12 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM12 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+        'historial' => 'M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 3',
     ];
 @endphp
 <svg {{ $attributes->class(['icono', 'icon-'.$nombre]) }} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="{{ $rutas[$nombre] ?? $rutas['documento'] }}"/></svg>

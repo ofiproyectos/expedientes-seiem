@@ -1,4 +1,3 @@
-@php($filtrando = collect(request()->only('user_id', 'action', 'result', 'resource_type', 'resource_id', 'expediente_id', 'from', 'to'))->filter(fn ($v) => filled($v))->isNotEmpty())
 <x-layouts.institucional titulo="Auditoría">
     <div class="page-title">
         <div>
@@ -60,7 +59,7 @@
             <x-per-page/>
             <div class="form-actions">
                 <x-ui.boton type="submit"><x-ui.icono nombre="buscar" class="icono-sm"/>Aplicar filtros</x-ui.boton>
-                @if($filtrando)<x-ui.boton variante="secondary" :href="route('audit.index')">Limpiar filtros</x-ui.boton>@endif
+                <x-ui.boton variante="secondary" :href="route('audit.index')" title="Limpiar filtros" aria-label="Limpiar filtros"><x-ui.icono nombre="actualizar" class="icono-sm"/></x-ui.boton>
             </div>
         </form>
 

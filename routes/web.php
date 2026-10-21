@@ -17,8 +17,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    Route::resource('expedientes', ExpedienteController::class)->only('index', 'store', 'show', 'update');
-    Route::post('/expedientes/{expediente}/status', [ExpedienteController::class, 'changeStatus'])->name('expedientes.status');
+    Route::resource('expedientes', ExpedienteController::class)->only('index', 'create', 'store', 'show', 'update');
     Route::post('/expedientes/{expediente}/documents', [DocumentController::class, 'store'])->name('documents.store');
     Route::put('/documents/{document}', [DocumentController::class, 'update'])->name('documents.update');
     Route::post('/documents/{document}/versions', [DocumentController::class, 'replace'])->name('documents.replace');

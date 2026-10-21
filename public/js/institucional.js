@@ -30,6 +30,124 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Índice del expediente (manual §8.3.1): marca con aria-current="location" la sección visible.
+    // La sección activa es la última cuyo encabezado ya pasó bajo la barra superior y el índice horizontal.
+    document.querySelectorAll('[data-section-nav]').forEach(indice => {
+        const enlaces = [...indice.querySelectorAll('a[href^="#"]')];
+        const secciones = enlaces.map(enlace => document.getElementById(enlace.hash.slice(1))?.closest('section')).filter(Boolean);
+        if (secciones.length !== enlaces.length) return;
+        let actual = -1;
+        const marcar = posicion => {
+            if (posicion === actual) return;
+            actual = posicion;
+            enlaces.forEach((enlace, i) => {
+                if (i === posicion) enlace.setAttribute('aria-current', 'location');
+                else enlace.removeAttribute('aria-current');
+            });
+            // En el índice horizontal, mantiene visible el enlace activo sin desplazar la página.
+            const activo = enlaces[posicion];
+            if (activo && indice.scrollWidth > indice.clientWidth) {
+                indice.scrollTo({ left: activo.offsetLeft - indice.offsetLeft - 16, behavior: 'smooth' });
+            }
+        };
+        let pendiente = false;
+        const calcular = () => {
+            pendiente = false;
+            const margen = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+            const alFinal = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+            let posicion = 0;
+            secciones.forEach((seccion, i) => { if (seccion.getBoundingClientRect().top <= margen + 8) posicion = i; });
+            marcar(alFinal ? secciones.length - 1 : posicion);
+        };
+        const programar = () => { if (!pendiente) { pendiente = true; requestAnimationFrame(calcular); } };
+        window.addEventListener('scroll', programar, { passive: true });
+        window.addEventListener('resize', programar);
+        enlaces.forEach((enlace, i) => enlace.addEventListener('click', () => marcar(i)));
+        calcular();
+    });
+
+    // Menú «Más acciones» (manual §7.13): popover nativo con cierre por Escape o clic fuera; aquí solo se coloca
+    // junto a su botón y dentro de la ventana. Al desplazar se recoloca; si el botón sale de la vista, se cierra.
+    const menuAbierto = menu => { try { return menu.matches(':popover-open'); } catch { return false; } };
+    const menus = document.querySelectorAll('[data-menu-acciones]');
+    const colocarMenu = menu => {
+        const caja = document.querySelector(`[popovertarget="${menu.id}"]`).getBoundingClientRect();
+        if (caja.bottom < 0 || caja.top > window.innerHeight) { menu.hidePopover(); return; }
+        const abajo = caja.bottom + 4;
+        menu.style.left = `${Math.max(8, Math.min(caja.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8))}px`;
+        menu.style.top = `${abajo + menu.offsetHeight > window.innerHeight - 8 ? Math.max(8, caja.top - menu.offsetHeight - 4) : abajo}px`;
+    };
+    menus.forEach(menu => {
+        menu.addEventListener('toggle', event => {
+            if (event.newState !== 'open') return;
+            colocarMenu(menu);
+            menu.querySelector('a, button')?.focus({ preventScroll: true });
+        });
+    });
+    if (menus.length) {
+        const recolocar = () => menus.forEach(menu => { if (menuAbierto(menu)) colocarMenu(menu); });
+        document.addEventListener('scroll', recolocar, { capture: true, passive: true });
+        window.addEventListener('resize', recolocar);
+    }
+
+    // Filtro de documentos (manual §8.3.1): filtra en el navegador las filas ya cargadas. Sin JavaScript la barra
+    // permanece oculta y se muestran todos los documentos. La búsqueda ignora acentos y mayúsculas.
+    document.querySelectorAll('[data-filtro-documentos]').forEach(filtro => {
+        const tabla = document.getElementById(filtro.dataset.filtroDocumentos);
+        if (!tabla) return;
+        const filas = [...tabla.querySelectorAll('tr[data-documento]')];
+        const sinCoincidencias = tabla.querySelector('[data-sin-coincidencias]');
+        // Conteo en el pie de la tabla, con el mismo formato que la paginación (manual §7.6).
+        const pie = document.querySelector(`[data-pie-documentos="${tabla.id}"]`);
+        const limpiar = filtro.querySelector('[data-limpiar-documentos]');
+        const busqueda = filtro.elements.namedItem('q');
+        const tipo = filtro.elements.namedItem('tipo');
+        const normalizar = valor => valor.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+        const aplicar = () => {
+            const palabras = normalizar(busqueda.value).split(/\s+/).filter(Boolean);
+            let visibles = 0;
+            filas.forEach(fila => {
+                const coincide = palabras.every(palabra => fila.dataset.texto.includes(palabra)) && (!tipo?.value || fila.dataset.tipo === tipo.value);
+                fila.hidden = !coincide;
+                if (coincide) visibles++;
+            });
+            sinCoincidencias.hidden = visibles > 0;
+            if (pie) pie.textContent = visibles ? `1–${visibles} de ${visibles}` : '0 registros';
+        };
+        filtro.addEventListener('input', aplicar);
+        filtro.addEventListener('change', aplicar);
+        filtro.addEventListener('submit', event => event.preventDefault());
+        limpiar.addEventListener('click', () => { filtro.reset(); aplicar(); busqueda.focus(); });
+        filtro.hidden = false;
+        aplicar();
+    });
+
+    // Diálogos de formulario (<x-ui.dialogo>, manual §7.9.1): abren desde [data-dialogo-abrir], cierran con
+    // Cancelar, X o Escape y devuelven el foco al control de origen (o al botón del menú del que salieron).
+    document.addEventListener('click', event => {
+        const abrir = event.target.closest?.('[data-dialogo-abrir]');
+        if (abrir) {
+            const dialogo = document.getElementById(abrir.dataset.dialogoAbrir);
+            if (!dialogo || typeof dialogo.showModal !== 'function') return;
+            dialogo.origen = abrir;
+            dialogo.showModal();
+            dialogo.querySelector('.modal-content :is(input:not([type="hidden"]), select, textarea)')?.focus();
+            return;
+        }
+        event.target.closest?.('[data-dialogo-cerrar]')?.closest('dialog')?.close();
+    });
+    document.querySelectorAll('[data-dialogo]').forEach(dialogo => {
+        dialogo.addEventListener('close', () => {
+            const menu = dialogo.origen?.closest('[popover]');
+            const destino = menu && !menuAbierto(menu) ? document.querySelector(`[popovertarget="${menu.id}"]`) : dialogo.origen;
+            destino?.focus({ preventScroll: true });
+        });
+        if (dialogo.hasAttribute('data-abrir-al-cargar')) {
+            dialogo.showModal();
+            dialogo.querySelector('[aria-invalid="true"]')?.focus();
+        }
+    });
+
     // Confirmación compartida (<x-ui.modal-confirmacion>).
     const modal = document.getElementById('modal-confirmacion');
     let pendiente = null;
@@ -145,14 +263,16 @@ document.addEventListener('DOMContentLoaded', () => {
             cancelar();
             const desde = formulario.elements.namedItem('from');
             const hasta = formulario.elements.namedItem('to');
-            hasta.setCustomValidity(desde.value && hasta.value && hasta.value < desde.value
-                ? 'La fecha final debe ser igual o posterior a la fecha inicial.' : '');
+            if (desde && hasta) {
+                hasta.setCustomValidity(desde.value && hasta.value && hasta.value < desde.value
+                    ? 'La fecha final debe ser igual o posterior a la fecha inicial.' : '');
+            }
             if (!formulario.reportValidity()) return;
 
             solicitud = new AbortController();
             const actual = revision;
             resultados.setAttribute('aria-busy', 'true');
-            aviso.textContent = 'Actualizando expedientes…';
+            aviso.textContent = 'Actualizando resultados…';
             aviso.hidden = false;
             try {
                 const respuesta = await fetch(url, {
@@ -164,12 +284,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.assign(respuesta.url);
                     return;
                 }
-                if (!respuesta.ok) throw new Error('No se pudieron actualizar los expedientes. Intenta de nuevo.');
+                if (!respuesta.ok) throw new Error('No se pudieron actualizar los resultados. Intenta de nuevo.');
                 const pagina = new DOMParser().parseFromString(await respuesta.text(), 'text/html');
                 if (actual !== revision) return;
                 const nuevos = pagina.querySelector('[data-listado-resultados]');
                 const nuevoTotal = pagina.querySelector('[data-listado-total]');
-                if (!nuevos || !nuevoTotal) throw new Error('No se pudieron actualizar los expedientes. Intenta de nuevo.');
+                if (!nuevos || !nuevoTotal) throw new Error('No se pudieron actualizar los resultados. Intenta de nuevo.');
                 resultados.replaceChildren(...nuevos.childNodes);
                 total.textContent = nuevoTotal.textContent;
                 window.history.replaceState(null, '', url);
