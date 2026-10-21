@@ -6,9 +6,9 @@ use App\Models\Expediente;
 use App\Models\User;
 
 /**
- * ADMIN: consulta todo, asigna permisos y solo cambia estados por excepción justificada.
- * LOADER: crea expedientes y administra los que tiene bajo su responsabilidad.
- * READER: consulta lo que se le comparte.
+ * Administrador: consulta todo y asigna permisos.
+ * Editor: crea expedientes y administra los que tiene bajo su responsabilidad.
+ * Lector: consulta y descarga lo que se le comparte.
  */
 class ExpedientePolicy
 {
@@ -35,11 +35,6 @@ class ExpedientePolicy
     }
 
     public function share(User $user, Expediente $expediente): bool
-    {
-        return $user->isAdmin();
-    }
-
-    public function viewAudit(User $user, Expediente $expediente): bool
     {
         return $user->isAdmin();
     }

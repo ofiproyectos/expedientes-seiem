@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\AccessGrantController;
-use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BulkPermissionController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ExpedienteController;
 use App\Http\Controllers\UserController;
@@ -27,6 +27,11 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::get('/files/{version}', [DocumentController::class, 'file'])->name('documents.file');
 
     Route::post('/expedientes/{expediente}/grants', [AccessGrantController::class, 'store'])->name('grants.store');
+    Route::get('/expedientes/{expediente}/permisos/asignar', [BulkPermissionController::class, 'create'])->name('permissions.create');
+    Route::post('/expedientes/{expediente}/permisos/revisar', [BulkPermissionController::class, 'preview'])->name('permissions.preview');
+    Route::post('/expedientes/{expediente}/permisos', [BulkPermissionController::class, 'store'])->name('permissions.store');
+    Route::post('/expedientes/{expediente}/permisos/revocar', [BulkPermissionController::class, 'revoke'])->name('permissions.revoke');
+    Route::get('/expedientes/{expediente}/permisos/lectores/{reader}', [BulkPermissionController::class, 'reader'])->name('permissions.reader');
     Route::delete('/grants/{grant}', [AccessGrantController::class, 'revoke'])->name('grants.revoke');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -34,5 +39,4 @@ Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
     Route::post('/users', [UserController::class, 'save'])->name('users.store');
     Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{user}', [UserController::class, 'save'])->name('users.update');
-    Route::get('/auditoria', [AuditController::class, 'index'])->name('audit.index');
 });

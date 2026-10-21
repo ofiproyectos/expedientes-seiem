@@ -28,15 +28,14 @@ class UserController extends Controller
     {
         $this->authorizeAdmin($request);
 
-        return view('user-form', ['user' => null, 'grants' => collect()]);
+        return view('user-form', ['user' => null]);
     }
 
     public function edit(Request $request, User $user)
     {
         $this->authorizeAdmin($request);
-        $grants = $user->grants()->with('expediente', 'document', 'grantor', 'revoker')->latest()->get();
 
-        return view('user-form', compact('user', 'grants'));
+        return view('user-form', compact('user'));
     }
 
     public function save(Request $request, ?User $user = null)

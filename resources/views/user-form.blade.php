@@ -22,28 +22,23 @@
                 <small id="username-hint" class="form-hint">Sin espacios ni acentos; por ejemplo, maria.lopez.</small>
                 <x-ui.error-campo campo="username" id="username-error"/>
             </div>
-                <div class="form-field">
-                    <label for="role">Rol<span class="required" aria-hidden="true">*</span></label>
-                    <select class="input-text" id="role" name="role" required aria-required="true" @error('role') aria-describedby="role-error" aria-invalid="true" @enderror>
-                        @foreach(config('expedientes.roles') as $valor => $etiqueta)
-                            <option value="{{ $valor }}" @selected(old('role', $user?->role ?? 'READER') === $valor)>{{ $etiqueta }}</option>
-                        @endforeach
-                    </select>
-                    <x-ui.error-campo campo="role" id="role-error"/>
-                </div>
-                <div class="form-field">
-                    <label for="is_active">Acceso<span class="required" aria-hidden="true">*</span></label>
-                    <select class="input-text" id="is_active" name="is_active" required aria-required="true" @error('is_active') aria-describedby="is_active-error" aria-invalid="true" @enderror>
-                        <option value="1" @selected((string) old('is_active', (int) ($user?->is_active ?? true)) === '1')>Activo</option>
-                        <option value="0" @selected((string) old('is_active', (int) ($user?->is_active ?? true)) === '0')>Desactivado</option>
-                    </select>
-                    <x-ui.error-campo campo="is_active" id="is_active-error"/>
-                </div>
-            @if($user)
-                <details class="account-password" @if($errors->has('password') || $errors->has('password_confirmation')) open @endif>
-                    <summary>Restablecer contraseña</summary>
-                    <p class="form-hint">Al restablecerla se cierran las sesiones abiertas de esta cuenta.</p>
-            @endif
+            <div class="form-field">
+                <label for="role">Rol<span class="required" aria-hidden="true">*</span></label>
+                <select class="input-text" id="role" name="role" required aria-required="true" @error('role') aria-describedby="role-error" aria-invalid="true" @enderror>
+                    @foreach(config('expedientes.roles') as $valor => $etiqueta)
+                        <option value="{{ $valor }}" @selected(old('role', $user?->role ?? 'READER') === $valor)>{{ $etiqueta }}</option>
+                    @endforeach
+                </select>
+                <x-ui.error-campo campo="role" id="role-error"/>
+            </div>
+            <div class="form-field">
+                <label for="is_active">Acceso<span class="required" aria-hidden="true">*</span></label>
+                <select class="input-text" id="is_active" name="is_active" required aria-required="true" @error('is_active') aria-describedby="is_active-error" aria-invalid="true" @enderror>
+                    <option value="1" @selected((string) old('is_active', (int) ($user?->is_active ?? true)) === '1')>Activo</option>
+                    <option value="0" @selected((string) old('is_active', (int) ($user?->is_active ?? true)) === '0')>Desactivado</option>
+                </select>
+                <x-ui.error-campo campo="is_active" id="is_active-error"/>
+            </div>
             <div class="form-field">
                 <label for="password">{{ $user ? 'Nueva contraseña' : 'Contraseña' }}@unless($user)<span class="required" aria-hidden="true">*</span>@endunless</label>
                 <div class="password-field"><input class="input-text" id="password" type="password" name="password" minlength="12" autocomplete="new-password" @required(! $user) @unless($user) aria-required="true" @endunless aria-describedby="password-hint @error('password') password-error @enderror" @error('password') aria-invalid="true" @enderror><button type="button" class="password-toggle" data-password-toggle aria-controls="password" aria-pressed="false" aria-label="Mostrar contraseña">Mostrar</button></div>
@@ -54,7 +49,7 @@
                 <label for="password_confirmation">Confirmar contraseña @unless($user)<span class="required" aria-hidden="true">*</span>@endunless</label>
                 <div class="password-field"><input class="input-text" id="password_confirmation" type="password" name="password_confirmation" autocomplete="new-password" @required(! $user)><button type="button" class="password-toggle" data-password-toggle aria-controls="password_confirmation" aria-pressed="false" aria-label="Mostrar contraseña">Mostrar</button></div>
             </div>
-            @if($user)</details>@endif
+            @if($user)<p class="form-hint">Deja la contraseña vacía para conservarla. Si la cambias, se cierran las sesiones abiertas de esta cuenta.</p>@endif
             <div class="form-actions">
                 <x-ui.boton type="submit"><x-ui.icono :nombre="$user ? 'check' : 'agregar'" class="icono-sm"/>{{ $user ? 'Guardar cambios' : 'Crear usuario' }}</x-ui.boton>
                 <x-ui.boton variante="secondary" :href="route('users.index')">Cancelar</x-ui.boton>
@@ -62,19 +57,4 @@
         </form>
     </section>
 
-    @if($user)
-        <p class="form-hint account-metadata">Alta: {{ $user->created_at->format('d/m/Y H:i') }}{{ $user->creator ? ' por '.$user->creator->name : '' }} · Último acceso: {{ $user->last_login_at?->format('d/m/Y H:i') ?? 'sin accesos' }}</p>
-    @endif
-
-    @if($user)
-        <section class="card" aria-labelledby="titulo-permisos-usuario">
-            <div class="section-heading">
-                <div>
-                    <h2 id="titulo-permisos-usuario">Expedientes autorizados</h2>
-                    <p class="muted">Permisos de lectura vigentes, programados, expirados y revocados de esta cuenta.</p>
-                </div>
-            </div>
-            @include('partials.grants-table', ['grants' => $grants, 'mostrarExpediente' => true, 'revocable' => false])
-        </section>
-    @endif
 </x-layouts.institucional>

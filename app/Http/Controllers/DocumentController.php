@@ -6,6 +6,7 @@ use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\Expediente;
 use App\Support\Audit;
+use App\Support\DocumentFilename;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -79,10 +80,11 @@ class DocumentController extends Controller
         if ($version->isCurrent()) {
             throw ValidationException::withMessages(['version' => 'La versión seleccionada ya es la vigente.']);
         }
-        $disk = Storage::disk('local');
+        $disk = Storage::disk('documentos');
         abort_unless($disk->exists($version->path), 404);
         $restored = $this->persist($document->expediente, function (array &$paths) use ($request, $document, $version, $disk) {
-            $path = 'documents/'.$document->expediente_id.'/'.bin2hex(random_bytes(20)).'.'.pathinfo($version->path, PATHINFO_EXTENSION);
+            $name = $version->downloadName();
+            $path = 'documents/'.$document->expediente_id.'/'.bin2hex(random_bytes(20)).'/'.$name;
             if (! $disk->copy($version->path, $path)) {
                 throw new \RuntimeException('No fue posible copiar el archivo de la versión.');
             }
@@ -90,7 +92,7 @@ class DocumentController extends Controller
 
             return $document->versions()->create([
                 'version' => $document->versions()->lockForUpdate()->max('version') + 1,
-                'path' => $path, 'original_name' => $version->original_name, 'mime' => $version->mime, 'size' => $version->size, 'hash' => $version->hash,
+                'path' => $path, 'original_name' => $name, 'mime' => $version->mime, 'size' => $version->size, 'hash' => $version->hash,
                 'uploaded_by' => $request->user()->id, 'restored_from_version' => $version->version,
                 'change_description' => "Restaurado desde la versión {$version->version}",
             ]);
@@ -133,7 +135,7 @@ class DocumentController extends Controller
         $document = $version->document;
         $this->authorizeVersion($request, $version, 'view');
 
-        return view('expedientes.viewer', ['version' => $version, 'document' => $document, 'canDownload' => Gate::allows('download', $document)]);
+        return view('expedientes.viewer', ['version' => $version, 'document' => $document]);
     }
 
     /** RF-VIS-001/002, RF-PRM-004: autorización en cada petición de archivo; visualización y descarga se auditan. */
@@ -141,7 +143,7 @@ class DocumentController extends Controller
     {
         $download = $request->boolean('download');
         $this->authorizeVersion($request, $version, $download ? 'download' : 'view');
-        $disk = Storage::disk('local');
+        $disk = Storage::disk('documentos');
         $document = $version->document;
         $label = "«{$document->name}» versión {$version->version}";
         if (! $disk->exists($version->path)) {
@@ -152,12 +154,13 @@ class DocumentController extends Controller
         if ($download) {
             Audit::record('document.downloaded', "Descarga de {$label}", $version);
 
-            return $disk->download($version->path, $version->original_name, $headers);
+            return $disk->download($version->path, $version->downloadName(), $headers);
         }
         abort_unless($version->isViewable(), 415, 'Este formato no tiene visor integrado; requiere descarga autorizada.');
         Audit::record('document.viewed', "Visualización de {$label}", $version);
 
-        return response()->file($disk->path($version->path), [...$headers, 'Content-Type' => $version->mime, 'Content-Disposition' => 'inline']);
+        return response()->file($disk->path($version->path), [...$headers, 'Content-Type' => $version->mime])
+            ->setContentDisposition('inline', $version->downloadName());
     }
 
     /** Las versiones anteriores solo las consultan ADMIN y LOADER responsable (RF-VER-002). */
@@ -205,14 +208,15 @@ class DocumentController extends Controller
 
     private function storeVersion(Request $request, Document $document, UploadedFile $file, array $inspected, array &$paths, ?string $description): DocumentVersion
     {
-        $path = $file->store('documents/'.$document->expediente_id, 'local');
+        $name = DocumentFilename::make($document->name, $file->getClientOriginalExtension());
+        $path = $file->storeAs('documents/'.$document->expediente_id.'/'.bin2hex(random_bytes(20)), $name, 'documentos');
         if (! $path) {
             throw new \RuntimeException('No fue posible almacenar el archivo.');
         }
         $paths[] = $path;
 
         return $document->versions()->create([
-            'version' => ($document->versions()->max('version') ?? 0) + 1, 'path' => $path, 'original_name' => $file->getClientOriginalName(),
+            'version' => ($document->versions()->max('version') ?? 0) + 1, 'path' => $path, 'original_name' => $name,
             'mime' => $inspected['mime'], 'size' => $file->getSize(), 'hash' => $inspected['hash'], 'uploaded_by' => $request->user()->id,
             'change_description' => $description,
         ]);
@@ -229,7 +233,7 @@ class DocumentController extends Controller
                 return $work($paths);
             });
         } catch (\Throwable $e) {
-            Storage::disk('local')->delete($paths);
+            Storage::disk('documentos')->delete($paths);
             throw $e;
         }
     }

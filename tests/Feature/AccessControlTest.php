@@ -28,9 +28,9 @@ class AccessControlTest extends TestCase
 
     private function document(Expediente $e): DocumentVersion
     {
-        Storage::fake('local');
+        Storage::fake('documentos');
         $path = 'documents/'.Str::random(8).'.pdf';
-        Storage::disk('local')->put($path, '%PDF-1.4 test');
+        Storage::disk('documentos')->put($path, '%PDF-1.4 test');
         $doc = $e->documents()->create(['name' => 'INE.pdf', 'type' => 'INE']);
 
         return $doc->versions()->create(['version' => 1, 'path' => $path, 'original_name' => 'INE.pdf', 'mime' => 'application/pdf', 'size' => 13, 'hash' => hash('sha256', $path), 'uploaded_by' => $e->responsible_id]);
@@ -56,22 +56,22 @@ class AccessControlTest extends TestCase
         $this->get(route('expedientes.index'))->assertOk()->assertDontSee('Expediente reservado');
     }
 
-    public function test_reader_can_view_but_cannot_download_or_mutate(): void
+    public function test_reader_can_view_and_download_but_cannot_mutate(): void
     {
         $e = $this->expediente($this->account('LOADER'));
         $version = $this->document($e);
         $reader = $this->account();
         $this->grant($reader, $e);
-        $this->actingAs($reader)->get(route('expedientes.show', $e))->assertOk()->assertDontSee('Descargar');
+        $this->actingAs($reader)->get(route('expedientes.show', $e))->assertOk()->assertSee('Descargar');
         $this->get(route('documents.file', $version))->assertOk();
-        $this->get(route('documents.file', ['version' => $version, 'download' => 1]))->assertForbidden();
+        $this->get(route('documents.file', ['version' => $version, 'download' => 1]))->assertOk();
         $this->post(route('documents.store', $e))->assertForbidden();
         $this->post(route('documents.replace', $version->document))->assertForbidden();
         $this->put(route('expedientes.update', $e))->assertForbidden();
         $this->post(route('grants.store', $e))->assertForbidden();
         $this->post(route('expedientes.store'))->assertForbidden();
         $this->get(route('users.index'))->assertForbidden();
-        $this->get(route('audit.index'))->assertForbidden();
+        $this->get('/auditoria')->assertNotFound();
     }
 
     public function test_document_grant_does_not_open_parent_or_other_documents(): void
@@ -119,7 +119,7 @@ class AccessControlTest extends TestCase
 
     public function test_owner_uploads_versions_rejects_duplicates_and_fake_extensions(): void
     {
-        Storage::fake('local');
+        Storage::fake('documentos');
         $owner = $this->account('LOADER');
         $e = $this->expediente($owner);
         $this->actingAs($owner)->post(route('documents.store', $e), ['type' => 'INE', 'files' => [UploadedFile::fake()->createWithContent('ine.pdf', "%PDF-1.4\noriginal")]])->assertSessionHasNoErrors();

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DocumentFilename;
 use Illuminate\Database\Eloquent\Model;
 
 /** Versión inmutable de un documento: cada una conserva su archivo independiente (RF-VER-001). */
@@ -34,5 +35,10 @@ class DocumentVersion extends Model
     public function format(): string
     {
         return strtoupper(pathinfo($this->original_name, PATHINFO_EXTENSION)) ?: $this->mime;
+    }
+
+    public function downloadName(): string
+    {
+        return DocumentFilename::make($this->document->name, pathinfo($this->original_name, PATHINFO_EXTENSION));
     }
 }

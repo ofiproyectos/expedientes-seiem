@@ -6,7 +6,6 @@ use App\Models\Expediente;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /** Pantallas con la plantilla y componentes del manual unificado de diseño SEIEM. */
@@ -36,7 +35,7 @@ class InterfaceTest extends TestCase
         $reader = $this->account('READER');
         $loader = $this->account('LOADER');
         $e = Expediente::create(['name' => 'Expediente de prueba', 'responsible_id' => $loader->id]);
-        Storage::fake('local');
+        Storage::fake('documentos');
         $doc = $e->documents()->create(['name' => 'INE.pdf', 'type' => 'INE']);
         $doc->versions()->create(['version' => 1, 'path' => 'x.pdf', 'original_name' => 'INE.pdf', 'mime' => 'application/pdf', 'size' => 13, 'hash' => 'h', 'uploaded_by' => $admin->id]);
         $e->grants()->create(['user_id' => $reader->id, 'granted_by' => $admin->id, 'starts_at' => now()->subMinute()]);
@@ -50,14 +49,16 @@ class InterfaceTest extends TestCase
         $this->get(route('expedientes.show', $e))->assertOk()
             ->assertSee('class="breadcrumb"', false)->assertSee('class="section-number"', false)
             ->assertSee('data-confirm-accept="Sí, revocar"', false)->assertSee('Revocar')->assertSee('INE.pdf')
-            ->assertSee('Consultar en Auditoría')->assertDontSee('Abrir en Auditoría')
-            ->assertSee('data-section-nav', false)->assertSee('href="#seccion-accesos"', false)->assertSee('href="#seccion-historial"', false);
+            ->assertDontSee('Auditoría')->assertDontSee('Historial del expediente')->assertDontSee('Historial de permisos')
+            ->assertSee('data-section-nav', false)->assertSee('href="#seccion-accesos"', false)->assertDontSee('href="#seccion-historial"', false);
         $this->get(route('users.index'))->assertOk()->assertSee('Usuarios y permisos')->assertSee('Lector');
         $this->get(route('users.create'))->assertOk()->assertSee('Crear usuario')->assertSee('icon-agregar', false)->assertSee('Creando usuario…')
             ->assertDontSee('Guardar usuario')->assertDontSee('Nuevo usuario')->assertSee('Cancelar');
-        $this->get(route('users.edit', $reader))->assertOk()->assertSee($reader->username)->assertSee('Editar usuario')->assertSee('Guardar cambios');
-        $this->get(route('audit.index'))->assertOk()->assertSee('Auditoría')
-            ->assertSee('title="Limpiar filtros" aria-label="Limpiar filtros"', false)->assertSee('icon-actualizar', false);
+        $this->get(route('users.edit', $reader))->assertOk()->assertSee($reader->username)->assertSee('Editar usuario')->assertSee('Guardar cambios')
+            ->assertSee('id="password"', false)->assertSee('id="password_confirmation"', false)
+            ->assertSee('Deja la contraseña vacía para conservarla.')
+            ->assertDontSee('<details', false)->assertDontSee('Expedientes autorizados')->assertDontSee('account-metadata');
+        $this->get('/auditoria')->assertNotFound();
     }
 
     public function test_loader_uses_shared_sidebar_and_separate_create_page(): void

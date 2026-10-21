@@ -8,9 +8,8 @@ use App\Models\Expediente;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -23,7 +22,7 @@ class RequirementsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Storage::fake('local');
+        Storage::fake('documentos');
     }
 
     private function account(string $role = 'READER', array $data = []): User
@@ -40,7 +39,7 @@ class RequirementsTest extends TestCase
     {
         $doc = $e->documents()->firstOrCreate(['name' => $name ?? 'INE'], ['type' => 'INE']);
         $path = 'documents/'.Str::random(10).'.pdf';
-        Storage::disk('local')->put($path, "%PDF-1.4 contenido $number");
+        Storage::disk('documentos')->put($path, "%PDF-1.4 contenido $number");
 
         return $doc->versions()->create(['version' => $number, 'path' => $path, 'original_name' => ($name ?? 'INE').($mime === 'application/pdf' ? '.pdf' : '.docx'), 'mime' => $mime, 'size' => 20, 'hash' => hash('sha256', $path), 'uploaded_by' => $e->responsible_id]);
     }
@@ -175,7 +174,7 @@ class RequirementsTest extends TestCase
         $this->actingAs($loader)->post(route('documents.store', $e), ['type' => 'Inventado', 'files' => [$this->pdf('a.pdf', 'a')]])->assertSessionHasErrors('type');
         $this->post(route('documents.store', $e), ['type' => 'INE', 'files' => [$this->pdf('a.pdf', 'a'), UploadedFile::fake()->createWithContent('b.pdf', 'no es pdf')]])->assertSessionHasErrors('files');
         $this->assertSame(0, $e->documents()->count());
-        $this->assertSame([], Storage::disk('local')->allFiles());
+        $this->assertSame([], Storage::disk('documentos')->allFiles());
         $this->post(route('documents.store', $e), ['type' => 'CURP', 'description' => 'Lote de ingreso', 'files' => [$this->pdf('curp.pdf', 'a'), $this->pdf('curp-reverso.pdf', 'b')]])->assertSessionHasNoErrors();
         $this->assertSame(['curp', 'curp-reverso'], $e->documents()->orderBy('name')->pluck('name')->all());
         $this->assertSame(2, $e->documents()->where('type', 'CURP')->where('description', 'Lote de ingreso')->count());
@@ -205,7 +204,7 @@ class RequirementsTest extends TestCase
     }
 
     // RF-PRM-003 / RF-PRM-004
-    public function test_permissions_report_grantor_and_download_is_hidden_when_forbidden(): void
+    public function test_read_permission_includes_download_and_permissions_are_managed_on_the_expediente(): void
     {
         $admin = $this->account('ADMIN', ['name' => 'Admin Otorgante']);
         $loader = $this->account('LOADER');
@@ -213,11 +212,11 @@ class RequirementsTest extends TestCase
         $v = $this->version($e);
         $reader = $this->account();
         $this->actingAs($admin)->post(route('grants.store', $e), ['user_id' => $reader->id, 'starts_at' => now()->subMinute()->toDateTimeString()]);
-        $this->get(route('users.edit', $reader))->assertSee($e->name)->assertSee('Admin Otorgante');
-        $this->get(route('expedientes.show', $e))->assertSee('Admin Otorgante');
-        $this->actingAs($reader)->get(route('documents.viewer', $v))->assertOk()->assertDontSee('Descargar');
-        $this->get(route('documents.file', ['version' => $v, 'download' => 1]))->assertForbidden();
-        $this->assertDatabaseHas('audit_events', ['action' => 'access.denied', 'user_id' => $reader->id, 'resource_id' => $v->id]);
+        $this->get(route('users.edit', $reader))->assertDontSee('Expedientes autorizados')->assertDontSee($e->name);
+        $this->get(route('expedientes.show', $e))->assertSee($reader->name)->assertDontSee('Historial de permisos');
+        $this->actingAs($reader)->get(route('documents.viewer', $v))->assertOk()->assertSee('Descargar');
+        $this->get(route('documents.file', ['version' => $v, 'download' => 1]))->assertOk();
+        $this->assertDatabaseHas('audit_events', ['action' => 'document.downloaded', 'user_id' => $reader->id, 'resource_id' => $v->id]);
     }
 
     // RF-VIS-001 / RF-VIS-002
@@ -270,18 +269,17 @@ class RequirementsTest extends TestCase
     }
 
     // RF-AUD-001 CA-03 / RF-AUD-002 / RF-AUD-003
-    public function test_audit_is_admin_only_filterable_and_immutable(): void
+    public function test_audit_is_recorded_and_immutable_but_has_no_interface(): void
     {
         $admin = $this->account('ADMIN');
         $loader = $this->account('LOADER');
         $e = $this->expediente($loader);
         $this->actingAs($loader)->put(route('expedientes.update', $e), ['name' => 'Renombrado']);
-        $this->get(route('audit.index'))->assertForbidden();
-        $this->actingAs($this->account())->get(route('audit.index'))->assertForbidden();
-
-        $this->actingAs($admin)->get(route('audit.index', ['user_id' => $loader->id, 'action' => 'expediente.updated', 'from' => now()->toDateString(), 'to' => now()->toDateString()]))
-            ->assertOk()->assertSee('Modificación de expediente')->assertDontSee('Acceso denegado a');
-        $this->get(route('expedientes.show', $e))->assertSee('Historial del expediente')->assertSee('Modificación de metadatos');
+        $this->get('/auditoria')->assertNotFound();
+        $this->actingAs($this->account())->get('/auditoria')->assertNotFound();
+        $this->actingAs($admin)->get('/auditoria')->assertNotFound();
+        $this->get(route('expedientes.show', $e))->assertDontSee('Auditoría')->assertDontSee('Historial del expediente');
+        $this->assertDatabaseHas('audit_events', ['action' => 'expediente.updated', 'expediente_id' => $e->id]);
 
         $event = AuditEvent::firstOrFail();
         $this->expectException(\LogicException::class);
@@ -310,7 +308,7 @@ class RequirementsTest extends TestCase
         $this->assertSame('Restaurado desde la versión 1', $v3->change_description);
         $this->assertSame($v1->hash, $v3->hash);
         $this->assertNotSame($v1->path, $v3->path);
-        $this->assertSame(Storage::disk('local')->get($v1->path), Storage::disk('local')->get($v3->path));
+        $this->assertSame(Storage::disk('documentos')->get($v1->path), Storage::disk('documentos')->get($v3->path));
         $this->assertSame(3, DocumentVersion::where('document_id', $v1->document_id)->count());
         $this->assertTrue($v3->isCurrent());
         $this->get(route('expedientes.show', $e))->assertSee('Restaurado');

@@ -2,7 +2,7 @@
     <div class="page-title">
         <div>
             <h1>Usuarios y permisos</h1>
-            <p class="muted">Administra cuentas, roles y acceso. Los permisos de lectura de cada usuario se consultan en su ficha.</p>
+            <p class="muted">Administra las cuentas, los roles y el acceso al sistema.</p>
         </div>
         <x-ui.boton :href="route('users.create')"><x-ui.icono nombre="agregar" class="icono-sm"/>Crear usuario</x-ui.boton>
     </div>

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\AccessGrant;
-use App\Models\AuditEvent;
 use App\Models\Document;
 use App\Models\Expediente;
 use App\Models\User;
@@ -79,14 +78,11 @@ class ExpedienteController extends Controller
             'edit' => Gate::allows('update', $expediente),
             'history' => Gate::allows('viewHistory', $expediente),
             'share' => Gate::allows('share', $expediente),
-            'audit' => Gate::allows('viewAudit', $expediente),
         ];
         $retired = $can['history'] ? $expediente->documents()->onlyTrashed()->with('retiredBy', 'latestVersion')->latest('deleted_at')->get() : collect();
-        $grants = $can['share'] ? $expediente->grants()->with('user', 'document', 'grantor', 'revoker')->latest()->get() : collect();
-        $readers = $can['share'] ? User::where('is_active', true)->where('role', 'READER')->orderBy('name')->get() : collect();
-        $history = $can['audit'] ? AuditEvent::with('user')->where('expediente_id', $expediente->id)->orderByDesc('id')->limit(200)->get() : collect();
+        $grants = $can['share'] ? $expediente->grants()->whereNull('revoked_at')->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->with('user', 'document')->latest()->get() : collect();
 
-        return view('expedientes.show', compact('expediente', 'can', 'retired', 'grants', 'readers', 'history'));
+        return view('expedientes.show', compact('expediente', 'can', 'retired', 'grants'));
     }
 
     /** RF-EXP-002: LOADER responsable y expediente editable; el folio y el identificador interno no cambian. */

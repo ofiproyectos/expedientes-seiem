@@ -9,6 +9,8 @@ class AccessGrant extends Model
 {
     protected $guarded = ['id'];
 
+    protected $attributes = ['can_download' => true];
+
     protected function casts(): array
     {
         return ['starts_at' => 'datetime', 'expires_at' => 'datetime', 'revoked_at' => 'datetime', 'can_download' => 'boolean'];

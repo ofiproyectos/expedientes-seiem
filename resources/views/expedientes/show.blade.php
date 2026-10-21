@@ -4,7 +4,6 @@
         'seccion-datos' => 'Datos generales',
         'seccion-documentos' => 'Documentos',
         'seccion-accesos' => $can['share'] ? 'Permisos de lectura' : null,
-        'seccion-historial' => $can['audit'] ? 'Historial del expediente' : null,
     ]);
     $numeros = [];
     foreach (array_keys($secciones) as $i => $id) { $numeros[$id] = str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT); }
@@ -76,7 +75,7 @@
                         <p>{{ $can['edit'] ? 'Usa «Cargar documentos» para agregar el primero.' : 'Los documentos aparecerán aquí cuando se carguen.' }}</p>
                     </div>
                 @else
-                    @include('expedientes.documents-table', ['documents' => $expediente->documents, 'editable' => $can['edit'], 'history' => $can['history']])
+                    @include('expedientes.documents-table', ['documents' => $expediente->documents, 'editable' => $can['edit'], 'history' => $can['history'], 'selectable' => $can['share']])
                 @endif
                 @if($retired->isNotEmpty())
                     <details class="disclosure disclosure-inset">
@@ -106,34 +105,21 @@
                 <section class="form-section" aria-labelledby="seccion-accesos">
                     <div class="form-section-heading">
                         <span class="section-number" aria-hidden="true">{{ $numeros['seccion-accesos'] }}</span>
-                        <div><h2 id="seccion-accesos">Permisos de lectura</h2><p>Solo el administrador concede o revoca. La descarga es una autorización adicional a la lectura.</p></div>
+                        <div><h2 id="seccion-accesos">Permisos de lectura</h2><p>El administrador concede o revoca el acceso para consultar y descargar documentos.</p></div>
                         <div class="section-actions">
-                            <x-ui.boton data-dialogo-abrir="asignar-permiso"><x-ui.icono nombre="agregar" class="icono-sm"/>Asignar permiso</x-ui.boton>
+                            <x-ui.boton :href="route('permissions.create', $expediente)"><x-ui.icono nombre="agregar" class="icono-sm"/>Asignar permisos</x-ui.boton>
                         </div>
                     </div>
-                    @include('partials.grants-table', ['grants' => $grants, 'mostrarExpediente' => false, 'revocable' => true])
+                    @include('permissions.overview')
                 </section>
             @endif
 
-            {{-- Historial del expediente (solo ADMIN) --}}
-            @if($can['audit'])
-                <section class="form-section" aria-labelledby="seccion-historial">
-                    <div class="form-section-heading">
-                        <span class="section-number" aria-hidden="true">{{ $numeros['seccion-historial'] }}</span>
-                        <div><h2 id="seccion-historial">Historial del expediente</h2><p>Cargas, cambios, versiones, consultas y permisos, del más reciente al más antiguo. No se puede modificar.</p></div>
-                        <div class="section-actions">
-                            <a class="text-link" href="{{ route('audit.index', ['expediente_id' => $expediente->id]) }}"><x-ui.icono nombre="buscar" class="icono-sm"/>Consultar en Auditoría</a>
-                        </div>
-                    </div>
-                    @include('partials.audit-table', ['events' => $history, 'mostrarRecurso' => false])
-                </section>
-            @endif
         </div>
     </div>
 
     {{-- Diálogos de formulario (manual §7.9.1). Cada formulario envía _dialogo para reabrirse si vuelve con errores. --}}
     @if($can['edit'])
-        <x-ui.dialogo id="editar-datos" titulo="Editar datos" descripcion="El cambio queda registrado en la auditoría. El folio no se modifica.">
+        <x-ui.dialogo id="editar-datos" titulo="Editar datos" descripcion="Actualiza el título y la descripción. El folio no se modifica.">
             <form method="POST" action="{{ route('expedientes.update', $expediente) }}" data-cargando="Guardando cambios…">
                 @csrf @method('PUT')
                 <input type="hidden" name="_dialogo" value="editar-datos">
@@ -174,7 +160,7 @@
                     <div class="form-field">
                         <label for="documento-title">Título</label>
                         <input class="input-text" id="documento-title" name="title" value="{{ $valor('cargar-documentos', 'title', '') }}" maxlength="255" aria-describedby="documento-title-hint">
-                        <small id="documento-title-hint" class="form-hint">Solo al cargar un archivo; si se omite, se usa el nombre del archivo.</small>
+                    <small id="documento-title-hint" class="form-hint">Solo al cargar un archivo. Se usa como nombre al guardarlo y descargarlo, conservando su extensión. Si se omite, se conserva el nombre original.</small>
                     </div>
                 </div>
                 <div class="form-field">
@@ -189,45 +175,4 @@
         </x-ui.dialogo>
     @endif
 
-    @if($can['share'])
-        <x-ui.dialogo id="asignar-permiso" titulo="Asignar permiso de lectura" descripcion="El lector podrá consultar el alcance elegido durante la vigencia indicada.">
-            <form method="POST" action="{{ route('grants.store', $expediente) }}" data-cargando="Asignando permiso…">
-                @csrf
-                <input type="hidden" name="_dialogo" value="asignar-permiso">
-                <div class="form-grid two">
-                    <div class="form-field">
-                        <label for="acceso-user">Usuario lector<span class="required" aria-hidden="true">*</span></label>
-                        <select class="input-text" id="acceso-user" name="user_id" required aria-required="true" @if($conError('asignar-permiso', 'user_id')) aria-invalid="true" aria-describedby="acceso-user-error" @endif>
-                            <option value="">Selecciona un lector</option>
-                            @foreach($readers as $user)<option value="{{ $user->id }}" @selected((string) $valor('asignar-permiso', 'user_id', '') === (string) $user->id)>{{ $user->name }} · {{ $user->username }}</option>@endforeach
-                        </select>
-                        <x-ui.error-campo campo="user_id" id="acceso-user-error" dialogo="asignar-permiso"/>
-                    </div>
-                    <div class="form-field">
-                        <label for="acceso-document">Alcance</label>
-                        <select class="input-text" id="acceso-document" name="document_id" @if($conError('asignar-permiso', 'document_id')) aria-invalid="true" aria-describedby="acceso-document-error" @endif>
-                            <option value="">Expediente completo</option>
-                            @foreach($expediente->documents as $doc)<option value="{{ $doc->id }}" @selected((string) $valor('asignar-permiso', 'document_id', '') === (string) $doc->id)>{{ $doc->name }}</option>@endforeach
-                        </select>
-                        <x-ui.error-campo campo="document_id" id="acceso-document-error" dialogo="asignar-permiso"/>
-                    </div>
-                    <div class="form-field">
-                        <label for="acceso-starts">Inicio<span class="required" aria-hidden="true">*</span></label>
-                        <input class="input-text" id="acceso-starts" type="datetime-local" name="starts_at" value="{{ $valor('asignar-permiso', 'starts_at', now()->format('Y-m-d\TH:i')) }}" required aria-required="true" @if($conError('asignar-permiso', 'starts_at')) aria-invalid="true" aria-describedby="acceso-starts-error" @endif>
-                        <x-ui.error-campo campo="starts_at" id="acceso-starts-error" dialogo="asignar-permiso"/>
-                    </div>
-                    <div class="form-field">
-                        <label for="acceso-expires">Expiración (opcional)</label>
-                        <input class="input-text" id="acceso-expires" type="datetime-local" name="expires_at" value="{{ $valor('asignar-permiso', 'expires_at', '') }}" @if($conError('asignar-permiso', 'expires_at')) aria-invalid="true" aria-describedby="acceso-expires-error" @endif>
-                        <x-ui.error-campo campo="expires_at" id="acceso-expires-error" dialogo="asignar-permiso"/>
-                    </div>
-                </div>
-                <label class="checkbox-label"><input type="checkbox" name="can_download" value="1" @checked($valor('asignar-permiso', 'can_download', false))>Permitir también la descarga</label>
-                <div class="modal-actions">
-                    <button type="button" class="btn-secondary" data-dialogo-cerrar>Cancelar</button>
-                    <x-ui.boton type="submit"><x-ui.icono nombre="agregar" class="icono-sm"/>Asignar permiso</x-ui.boton>
-                </div>
-            </form>
-        </x-ui.dialogo>
-    @endif
 </x-layouts.institucional>

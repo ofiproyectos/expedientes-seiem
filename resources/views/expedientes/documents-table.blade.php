@@ -4,6 +4,7 @@
     $tipos = $documents->pluck('type')->unique()->sort()->values();
     // El filtro aparece con dos o más documentos; trabaja sobre las filas ya cargadas (manual §8.3.1).
     $conFiltros = $documents->count() > 1;
+    $selectable = $selectable ?? false;
 @endphp
 @if($conFiltros)
     <form class="filter-bar document-filters" role="search" aria-label="Filtrar documentos" data-filtro-documentos="{{ $tablaId }}" hidden>
@@ -25,10 +26,16 @@
         </div>
     </form>
 @endif
+@if($selectable)
+    <form method="GET" action="{{ route('permissions.create', $expediente) }}" data-share-documents>
+    <div class="selection-toolbar" data-share-actions hidden><span data-share-count role="status">0 documentos seleccionados</span><button type="submit" class="btn-primary" data-share-selected disabled><x-ui.icono nombre="agregar" class="icono-sm"/>Asignar permisos</button></div>
+    @once('permissions-script')<script src="{{ asset('js/permissions.js') }}?v={{ filemtime(public_path('js/permissions.js')) }}" defer></script>@endonce
+@endif
 <div class="table-scroll" role="region" aria-label="Documentos" tabindex="0">
     <table class="data-table documents-table" id="{{ $tablaId }}">
         <thead>
             <tr>
+                @if($selectable)<th scope="col">Seleccionar</th>@endif
                 <th scope="col">Documento</th>
                 <th scope="col">Tipo</th>
                 <th scope="col">Versión</th>
@@ -43,6 +50,7 @@
                     $puedeDescargar = Gate::allows('download', $document);
                 @endphp
                 <tr data-documento data-texto="{{ Str::lower(Str::ascii($document->name.' '.$document->description.' '.$vigente->original_name)) }}" data-tipo="{{ $document->type }}">
+                    @if($selectable)<td class="selection-cell"><input type="checkbox" name="documents[]" value="{{ $document->id }}" data-share-document aria-label="Seleccionar {{ $document->name }}"></td>@endif
                     <td class="cell-primary">
                         <strong>{{ $document->name }}</strong>
                         @if($document->description)<small class="cell-truncate" title="{{ $document->description }}">{{ $document->description }}</small>@endif
@@ -73,7 +81,7 @@
             @endforeach
             @if($conFiltros)
                 <tr data-sin-coincidencias hidden>
-                    <td colspan="5" class="empty-state-cell">
+                    <td colspan="{{ $selectable ? 6 : 5 }}" class="empty-state-cell">
                         <div class="empty-state"><x-ui.icono nombre="buscar"/><h3>Sin coincidencias</h3><p>Ningún documento coincide con los filtros. Ajusta la búsqueda o quita algún filtro.</p></div>
                     </td>
                 </tr>
@@ -82,6 +90,7 @@
     </table>
 </div>
 <x-ui.pie-tabla :total="$documents->count()" data-pie-documentos="{{ $tablaId }}" role="status"/>
+@if($selectable)</form>@endif
 @if($editable || $history)
     @foreach($documents as $document)
         @include('expedientes.document-dialogs')

@@ -19,11 +19,7 @@ class DocumentPolicy
 
     public function download(User $user, Document $document): bool
     {
-        if ($this->viewHistory($user, $document)) {
-            return true;
-        }
-
-        return ! $document->trashed() && $this->grants($user, $document)->where('can_download', true)->exists();
+        return $this->view($user, $document);
     }
 
     /** Nueva versión, clasificación, baja y restauración. */

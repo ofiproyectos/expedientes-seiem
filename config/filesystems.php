@@ -30,6 +30,15 @@ return [
 
     'disks' => [
 
+        // Documentos de los expedientes. La carpeta se define con DOCUMENTS_PATH en .env.
+        'documentos' => [
+            'driver' => 'local',
+            'root' => env('DOCUMENTS_PATH') ?: storage_path('app/private'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),

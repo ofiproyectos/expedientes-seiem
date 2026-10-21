@@ -31,11 +31,6 @@ class User extends Authenticatable
         ];
     }
 
-    public function creator()
-    {
-        return $this->belongsTo(self::class, 'created_by');
-    }
-
     public function grants()
     {
         return $this->hasMany(AccessGrant::class);

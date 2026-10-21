@@ -1,6 +1,6 @@
 /**
  * Comportamiento compartido del sistema visual SEIEM (manual unificado §7.8–§7.10, §6.3).
- * Confirmación declarativa (data-confirm), ventana de estado (data-aviso-inicial, data-cargando), toasts,
+ * Confirmación declarativa (data-confirm), ventana de estado (data-aviso-inicial, data-cargando),
  * menú adaptable y control Mostrar/Ocultar de contraseña. Sin dependencias ni compilación.
  */
 document.addEventListener('DOMContentLoaded', () => {
@@ -337,10 +337,4 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('pagehide', cancelar);
     });
 
-    // Toasts con cierre y autocierre opcional.
-    document.querySelectorAll('[data-toast]').forEach(toast => {
-        const cerrar = () => { toast.classList.add('is-leaving'); setTimeout(() => toast.remove(), 200); };
-        toast.querySelector('[data-toast-cerrar]')?.addEventListener('click', cerrar);
-        if (toast.dataset.autocierre) setTimeout(cerrar, Number(toast.dataset.autocierre));
-    });
 });

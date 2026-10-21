@@ -18,14 +18,13 @@
         <aside class="workspace-sidebar" id="navegacion">
             <nav class="navigation" aria-label="Principal">
                 <p class="nav-label">Espacio de trabajo</p>
-                <a href="{{ route('expedientes.index') }}" @if(request()->routeIs('expedientes.*') && ! request()->routeIs('expedientes.create')) aria-current="page" @endif><x-ui.icono nombre="documento"/>Expedientes</a>
+                <a href="{{ route('expedientes.index') }}" @if((request()->routeIs('expedientes.*') && ! request()->routeIs('expedientes.create')) || request()->routeIs('permissions.*')) aria-current="page" @endif><x-ui.icono nombre="documento"/>Expedientes</a>
                 @can('create', App\Models\Expediente::class)
                     <a href="{{ route('expedientes.create') }}" @if(request()->routeIs('expedientes.create')) aria-current="page" @endif><x-ui.icono nombre="agregar"/>Crear expediente</a>
                 @endcan
                 @if(auth()->user()->isAdmin())
                 <p class="nav-label nav-section">Administración</p>
                 <a href="{{ route('users.index') }}" @if(request()->routeIs('users.*')) aria-current="page" @endif><x-ui.icono nombre="usuarios"/>Usuarios y permisos</a>
-                <a href="{{ route('audit.index') }}" @if(request()->routeIs('audit.*')) aria-current="page" @endif><x-ui.icono nombre="actividad"/>Auditoría</a>
                 @endif
                 <div class="sidebar-bottom"><form method="POST" action="{{ route('logout') }}" data-cargando="Cerrando sesión…">@csrf<button class="logout-button" type="submit"><x-ui.icono nombre="salir"/>Cerrar sesión</button></form></div>
             </nav>
