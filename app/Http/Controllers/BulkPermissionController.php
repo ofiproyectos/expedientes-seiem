@@ -79,7 +79,7 @@ class BulkPermissionController extends Controller
             return ['document' => $document, 'sources' => $sources];
         })->filter(fn ($row) => $row['sources']->isNotEmpty());
 
-        $page = max(1, (int) $request->input('effective_page', 1));
+        $page = min(max(1, (int) $request->input('effective_page', 1)), max(1, (int) ceil($effective->count() / 10)));
         $effective = new LengthAwarePaginator($effective->values()->forPage($page, 10), $effective->count(), 10, $page, [
             'path' => $request->url(), 'pageName' => 'effective_page', 'fragment' => 'acceso-efectivo',
         ]);

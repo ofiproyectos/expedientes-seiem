@@ -1,0 +1,1 @@
+@include('errors.layout', ['titulo' => 'Revisa los datos enviados', 'descripcion' => 'La información recibida no es válida para esta operación.', 'ayuda' => 'Vuelve al formulario y comprueba sus campos antes de enviarlo de nuevo.'])

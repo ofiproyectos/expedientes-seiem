@@ -1,0 +1,1 @@
+@include('errors.layout', ['titulo' => 'Acceso denegado', 'descripcion' => 'Tu cuenta no tiene permiso para realizar esta operación.', 'ayuda' => 'Vuelve a tus expedientes. Si necesitas acceso adicional, solicítalo al administrador.'])

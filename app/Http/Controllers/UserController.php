@@ -20,6 +20,9 @@ class UserController extends Controller
         $users = User::query()
             ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$request->q.'%')->orWhere('username', 'like', '%'.$request->q.'%')))
             ->orderBy('name')->orderBy('id')->paginate(10)->appends($request->only('q'));
+        if ($users->currentPage() > $users->lastPage()) {
+            return redirect()->to($request->fullUrlWithQuery(['page' => $users->lastPage()]));
+        }
 
         return view('users', compact('users'));
     }

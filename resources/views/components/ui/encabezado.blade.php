@@ -10,7 +10,7 @@
         <div class="header-context">
             <span class="platform-label">{{ config('expedientes.platform_name') }}</span>
             @auth
-                <span class="header-user"><span>{{ auth()->user()->username }}<small>{{ auth()->user()->roleLabel() }}</small></span></span>
+                <span class="header-user"><span><span class="header-user-name" title="{{ auth()->user()->username }}">{{ auth()->user()->username }}</span><small>{{ auth()->user()->roleLabel() }}</small></span></span>
                 @unless($conMenu)
                     <form method="POST" action="{{ route('logout') }}" data-cargando="Cerrando sesión…">@csrf<button class="header-logout" type="submit" aria-label="Cerrar sesión" title="Cerrar sesión"><x-ui.icono nombre="salir" class="icono-sm"/></button></form>
                 @endunless

@@ -16,6 +16,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const encabezado = document.querySelector('.app-header');
+    if (encabezado && window.ResizeObserver) new ResizeObserver(() => {
+        document.documentElement.style.setProperty('--header-height', `${encabezado.getBoundingClientRect().height}px`);
+    }).observe(encabezado);
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && navegacion?.classList.contains('is-open')) {
+            navegacion.classList.remove('is-open');
+            menu.setAttribute('aria-expanded', 'false');
+            menu.setAttribute('aria-label', 'Abrir men\u00fa');
+            menu.focus();
+        }
+    });
+
     // Contraseña: cambia la visibilidad sin enviar el formulario y devuelve el foco al campo.
     document.querySelectorAll('[data-password-toggle]').forEach(boton => {
         const campo = document.getElementById(boton.getAttribute('aria-controls'));
@@ -47,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // En el índice horizontal, mantiene visible el enlace activo sin desplazar la página.
             const activo = enlaces[posicion];
             if (activo && indice.scrollWidth > indice.clientWidth) {
-                indice.scrollTo({ left: activo.offsetLeft - indice.offsetLeft - 16, behavior: 'smooth' });
+                indice.scrollTo({ left: activo.offsetLeft - indice.offsetLeft - 16, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
             }
         };
         let pendiente = false;
@@ -78,6 +91,15 @@ document.addEventListener('DOMContentLoaded', () => {
         menu.style.top = `${abajo + menu.offsetHeight > window.innerHeight - 8 ? Math.max(8, caja.top - menu.offsetHeight - 4) : abajo}px`;
     };
     menus.forEach(menu => {
+        menu.addEventListener('keydown', event => {
+            const opciones = [...menu.querySelectorAll('a, button:not(:disabled)')];
+            if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                event.preventDefault();
+                const actual = opciones.indexOf(document.activeElement);
+                const siguiente = event.key === 'Home' ? 0 : event.key === 'End' ? opciones.length - 1 : (actual + (event.key === 'ArrowDown' ? 1 : -1) + opciones.length) % opciones.length;
+                opciones[siguiente]?.focus();
+            }
+        });
         menu.addEventListener('toggle', event => {
             if (event.newState !== 'open') return;
             colocarMenu(menu);
@@ -90,39 +112,45 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('resize', recolocar);
     }
 
-    // Filtro de documentos (manual §8.3.1): filtra en el navegador las filas ya cargadas. Sin JavaScript la barra
-    // permanece oculta y se muestran todos los documentos. La búsqueda ignora acentos y mayúsculas.
-    document.querySelectorAll('[data-filtro-documentos]').forEach(filtro => {
-        const tabla = document.getElementById(filtro.dataset.filtroDocumentos);
-        if (!tabla) return;
-        const filas = [...tabla.querySelectorAll('tr[data-documento]')];
-        const sinCoincidencias = tabla.querySelector('[data-sin-coincidencias]');
-        // Conteo en el pie de la tabla, con el mismo formato que la paginación (manual §7.6).
-        const pie = document.querySelector(`[data-pie-documentos="${tabla.id}"]`);
-        const limpiar = filtro.querySelector('[data-limpiar-documentos]');
-        const busqueda = filtro.elements.namedItem('q');
-        const tipo = filtro.elements.namedItem('tipo');
-        const normalizar = valor => valor.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-        const aplicar = () => {
-            const palabras = normalizar(busqueda.value).split(/\s+/).filter(Boolean);
-            let visibles = 0;
-            filas.forEach(fila => {
-                const coincide = palabras.every(palabra => fila.dataset.texto.includes(palabra)) && (!tipo?.value || fila.dataset.tipo === tipo.value);
-                fila.hidden = !coincide;
-                if (coincide) visibles++;
-            });
-            sinCoincidencias.hidden = visibles > 0;
-            if (pie) pie.textContent = visibles ? `1–${visibles} de ${visibles}` : '0 registros';
+    // Diez filas por pagina; filtrar nunca pierde la seleccion entre paginas.
+    document.querySelectorAll('table[data-local-pagination]').forEach(tabla => {
+        const filas = [...tabla.querySelectorAll('[data-pagination-row]')];
+        const pie = document.querySelector(`[data-pagination-for="${tabla.id}"]`);
+        if (!pie) return;
+        const filtro = document.querySelector(`[data-filtro-documentos="${tabla.id}"]`);
+        const busqueda = filtro?.elements.namedItem('q');
+        const tipo = filtro?.elements.namedItem('tipo');
+        const normalizar = valor => valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        let pagina = 1;
+        const pintar = () => {
+            const palabras = normalizar(busqueda?.value || '').split(/\s+/).filter(Boolean);
+            const coincidencias = filas.filter(fila => palabras.every(palabra => (fila.dataset.texto || '').includes(palabra)) && (!tipo?.value || fila.dataset.tipo === tipo.value));
+            const paginas = Math.max(1, Math.ceil(coincidencias.length / 10));
+            pagina = Math.min(pagina, paginas);
+            filas.forEach(fila => { fila.hidden = true; });
+            coincidencias.slice((pagina - 1) * 10, pagina * 10).forEach(fila => { fila.hidden = false; });
+            const vacio = tabla.querySelector('[data-sin-coincidencias]');
+            if (vacio) vacio.hidden = coincidencias.length > 0;
+            pie.querySelector('[data-page-range]').textContent = coincidencias.length ? `${(pagina - 1) * 10 + 1}\u2013${Math.min(pagina * 10, coincidencias.length)} de ${coincidencias.length}` : '0 registros';
+            pie.querySelector('[data-page-controls]').hidden = paginas === 1;
+            pie.querySelector('[data-page-label]').textContent = `P\u00e1gina ${pagina} de ${paginas}`;
+            pie.querySelector('[data-page-prev]').disabled = pagina === 1;
+            pie.querySelector('[data-page-next]').disabled = pagina === paginas;
         };
-        filtro.addEventListener('input', aplicar);
-        filtro.addEventListener('change', aplicar);
-        filtro.addEventListener('submit', event => event.preventDefault());
-        limpiar.addEventListener('click', () => { filtro.reset(); aplicar(); busqueda.focus(); });
-        filtro.hidden = false;
-        aplicar();
+        const cambiarPagina = paso => { pagina += paso; pintar(); tabla.closest('[role="region"]')?.focus({ preventScroll: true }); };
+        pie.querySelector('[data-page-prev]').addEventListener('click', () => cambiarPagina(-1));
+        pie.querySelector('[data-page-next]').addEventListener('click', () => cambiarPagina(1));
+        if (filtro) {
+            const aplicar = () => { pagina = 1; pintar(); };
+            filtro.addEventListener('input', aplicar);
+            filtro.addEventListener('change', aplicar);
+            filtro.addEventListener('submit', event => event.preventDefault());
+            filtro.querySelector('[data-limpiar-documentos]').addEventListener('click', () => { filtro.reset(); aplicar(); busqueda.focus(); });
+            filtro.hidden = false;
+        }
+        pintar();
     });
 
-    // Diálogos de formulario (<x-ui.dialogo>, manual §7.9.1): abren desde [data-dialogo-abrir], cierran con
     // Cancelar, X o Escape y devuelven el foco al control de origen (o al botón del menú del que salieron).
     document.addEventListener('click', event => {
         const abrir = event.target.closest?.('[data-dialogo-abrir]');
@@ -130,6 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const dialogo = document.getElementById(abrir.dataset.dialogoAbrir);
             if (!dialogo || typeof dialogo.showModal !== 'function') return;
             dialogo.origen = abrir;
+            const origenMenu = abrir.closest('[popover]');
+            if (origenMenu && menuAbierto(origenMenu)) origenMenu.hidePopover();
             dialogo.showModal();
             dialogo.querySelector('.modal-content :is(input:not([type="hidden"]), select, textarea)')?.focus();
             return;
@@ -144,13 +174,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (dialogo.hasAttribute('data-abrir-al-cargar')) {
             dialogo.showModal();
-            dialogo.querySelector('[aria-invalid="true"]')?.focus();
+            (dialogo.querySelector('[aria-invalid="true"]') || dialogo.querySelector('[data-dialog-error-summary]'))?.focus();
         }
     });
 
     // Confirmación compartida (<x-ui.modal-confirmacion>).
     const modal = document.getElementById('modal-confirmacion');
     let pendiente = null;
+    let padreConfirmacion = null;
     const cerrarModal = () => { if (modal?.open) modal.close(); };
     document.addEventListener('click', event => {
         const boton = event.target.closest?.('[data-confirm]');
@@ -161,6 +192,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         event.preventDefault();
         pendiente = boton;
+        padreConfirmacion = boton.closest('dialog[open]');
+        if (padreConfirmacion) padreConfirmacion.close();
+        const origenMenu = boton.closest('[popover]');
+        if (origenMenu && menuAbierto(origenMenu)) origenMenu.hidePopover();
         const peligro = boton.dataset.confirmVariant === 'danger';
         const aceptar = modal.querySelector('[data-modal-aceptar]');
         modal.classList.toggle('is-danger', peligro);
@@ -175,7 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modal) {
         modal.querySelectorAll('[data-modal-cancelar]').forEach(control => control.addEventListener('click', cerrarModal));
         modal.addEventListener('click', event => { if (event.target === modal) cerrarModal(); });
-        modal.addEventListener('close', () => { pendiente?.focus(); });
+        modal.addEventListener('close', () => {
+            if (pendiente && padreConfirmacion) padreConfirmacion.showModal();
+            const origenMenu = pendiente?.closest('[popover]');
+            const destino = origenMenu ? document.querySelector(`[popovertarget="${origenMenu.id}"]`) : pendiente;
+            destino?.focus();
+            padreConfirmacion = null;
+        });
         modal.querySelector('[data-modal-aceptar]').addEventListener('click', () => {
             const boton = pendiente;
             pendiente = null;
@@ -204,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         estado.querySelector('#status-description').textContent = mensaje;
         estado.querySelector('button').hidden = tipo === 'loading';
         estado.setAttribute('aria-busy', String(tipo === 'loading'));
+        document.querySelectorAll('dialog[open]').forEach(dialogo => { if (dialogo !== estado) dialogo.close(); });
         if (!estado.open) estado.showModal();
         if (tipo !== 'loading') estado.querySelector('button').focus({preventScroll: true});
     };
@@ -228,10 +270,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!mensaje || event.defaultPrevented) return;
         if (formulario.dataset.enviando === 'true') { event.preventDefault(); return; }
         formulario.dataset.enviando = 'true';
+        formulario.setAttribute('aria-busy', 'true');
         presentarEstado('Procesando', mensaje, 'loading');
     });
     window.addEventListener('pageshow', () => {
-        document.querySelectorAll('form[data-enviando]').forEach(formulario => { delete formulario.dataset.enviando; });
+        document.querySelectorAll('form[data-enviando]').forEach(formulario => { delete formulario.dataset.enviando; formulario.removeAttribute('aria-busy'); });
         if (estado.open && tipoEstado === 'loading') estado.close();
     });
 
@@ -244,9 +287,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let temporizador;
         let solicitud;
         let revision = 0;
+        let espera;
 
         const cancelar = () => {
             clearTimeout(temporizador);
+            clearTimeout(espera);
             solicitud?.abort();
             revision++;
             resultados.removeAttribute('aria-busy');
@@ -272,8 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
             solicitud = new AbortController();
             const actual = revision;
             resultados.setAttribute('aria-busy', 'true');
-            aviso.textContent = 'Actualizando resultados…';
-            aviso.hidden = false;
+            espera = setTimeout(() => { aviso.textContent = 'Actualizando resultados\u2026'; aviso.classList.remove('sr-only'); aviso.hidden = false; }, 300);
             try {
                 const respuesta = await fetch(url, {
                     signal: solicitud.signal,
@@ -284,7 +328,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.location.assign(respuesta.url);
                     return;
                 }
-                if (!respuesta.ok) throw new Error('No se pudieron actualizar los resultados. Intenta de nuevo.');
+                if (!respuesta.ok) {
+                    const mensajes = {
+                        401: 'Tu sesión terminó. Recarga la página e inicia sesión.',
+                        403: 'Tu cuenta ya no tiene acceso a estos resultados.',
+                        419: 'Tu sesión terminó. Recarga la página e inicia sesión.',
+                        422: 'Revisa los filtros e inténtalo de nuevo.',
+                        429: 'Demasiadas solicitudes. Espera un momento antes de buscar de nuevo.',
+                    };
+                    throw new Error(mensajes[respuesta.status] || 'No se pudieron actualizar los resultados. Vuelve a buscar o usa Limpiar filtros.');
+                }
                 const pagina = new DOMParser().parseFromString(await respuesta.text(), 'text/html');
                 if (actual !== revision) return;
                 const nuevos = pagina.querySelector('[data-listado-resultados]');
@@ -295,12 +348,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.history.replaceState(null, '', url);
                 aviso.textContent = `${total.textContent.trim()}. Resultados actualizados.`;
                 aviso.classList.add('sr-only');
+                aviso.hidden = false;
+                if (url.searchParams.has('page')) { resultados.tabIndex = -1; resultados.focus({ preventScroll: true }); }
             } catch (error) {
                 if (actual !== revision || error.name === 'AbortError') return;
                 aviso.classList.remove('sr-only');
-                aviso.textContent = error.message;
+                aviso.textContent = error instanceof TypeError ? 'No se pudo conectar. Conservamos los resultados anteriores; vuelve a buscar o usa Limpiar filtros.' : error.message;
+                aviso.hidden = false;
             } finally {
-                if (actual === revision) resultados.removeAttribute('aria-busy');
+                if (actual === revision) { clearTimeout(espera); resultados.removeAttribute('aria-busy'); }
             }
         };
         formulario.addEventListener('input', event => {
@@ -326,6 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (campo.tagName === 'SELECT') campo.selectedIndex = 0;
                 else if (campo.tagName === 'INPUT') campo.value = '';
             }
+            formulario.elements.namedItem('q')?.focus();
             actualizar();
         });
         resultados.addEventListener('click', event => {
@@ -337,4 +394,19 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('pagehide', cancelar);
     });
 
+    if (!document.querySelector('[data-abrir-al-cargar]')) document.querySelector('[data-error-summary]')?.focus();
+
+    // La comparación queda en memoria: no guarda contraseñas ni datos de formularios en el navegador.
+    const formulariosEditables = [...document.querySelectorAll('form[method="POST" i]')].filter(form => form.querySelector('input:not([type="hidden"]):not([type="search"]), select, textarea'));
+    const firma = form => JSON.stringify([...form.elements].filter(campo => campo.name && !['hidden', 'submit', 'button', 'search'].includes(campo.type)).map(campo => [campo.name, campo.type === 'file' ? [...campo.files].map(archivo => [archivo.name, archivo.size, archivo.lastModified]) : ['checkbox', 'radio'].includes(campo.type) ? campo.checked : campo.value]));
+    const originales = new Map(formulariosEditables.map(form => [form, firma(form)]));
+    let saliendo = false;
+    document.addEventListener('submit', event => { if (!event.defaultPrevented) saliendo = true; });
+    window.addEventListener('pageshow', () => { saliendo = false; });
+    window.addEventListener('beforeunload', event => {
+        if (!saliendo && formulariosEditables.some(form => firma(form) !== originales.get(form))) {
+            event.preventDefault();
+            event.returnValue = '';
+        }
+    });
 });

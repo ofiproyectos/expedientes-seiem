@@ -7,14 +7,15 @@
         <input type="hidden" name="review_token" data-review-token>
         <input type="hidden" name="selection" data-batch-selection>
         <ol class="permission-steps" aria-label="Pasos de asignación"><li data-step-label aria-current="step">1. Documentos</li><li data-step-label>2. Lectores</li><li data-step-label>3. Revisar y asignar</li></ol>
-        <p class="alert alert-error" role="alert" data-batch-error hidden></p>
+        <p class="alert alert-error" role="alert" tabindex="-1" data-batch-error hidden></p>
         <section class="card" data-batch-step="0" aria-labelledby="alcance-titulo">
             <div class="form-section-heading"><span class="section-number" aria-hidden="true">01</span><div><h2 id="alcance-titulo" tabindex="-1">Documentos</h2><p>Elige el alcance del acceso.</p></div></div>
-            <div class="form-field">
+            <fieldset class="form-field">
+                <legend>Alcance del acceso</legend>
                 <label class="checkbox-label"><input type="radio" name="scope" value="documents" @checked(($initial['scope'] ?? 'documents') === 'documents')>Documentos específicos</label>
                 <label class="checkbox-label"><input type="radio" name="scope" value="expediente" @checked(($initial['scope'] ?? '') === 'expediente')>Expediente completo</label>
                 <p class="form-hint" data-scope-help>Los documentos específicos no incluyen los que se agreguen después. El expediente completo incluye documentos actuales y futuros, siempre en su versión vigente.</p>
-            </div>
+            </fieldset>
             <div data-document-picker>
                 <x-ui.seleccion-tabla id="batch-documents" titulo="Nombre del documento" columna="Documento" detalle="Tipo" :items="$documents->map(fn ($d) => ['id' => $d->id, 'label' => $d->name, 'detail' => $d->type])" :selected="$initial['document_ids'] ?? []"/>
             </div>
@@ -26,10 +27,10 @@
         </section>
         <section class="card" data-batch-step="2" aria-labelledby="revision-titulo" hidden>
             <div class="form-section-heading"><span class="section-number" aria-hidden="true">03</span><div><h2 id="revision-titulo" tabindex="-1">Revisar y asignar</h2><p>Verifica la vigencia del acceso.</p></div></div>
-            <p class="form-hint">El acceso permite consultar y descargar. Los permisos completamente cubiertos se consolidan; los que tienen mayor vigencia se conservan.</p>
+            <p class="form-hint">El acceso permite consultar y descargar. Los permisos completamente cubiertos se consolidan; los que tienen mayor vigencia se conservan. Máximo 1,000 lectores y 20,000 permisos por operación.</p>
             <div class="form-grid two">
-                <div class="form-field"><label for="batch-starts">Inicio (vacío: inmediato)</label><input id="batch-starts" class="input-text" type="datetime-local" name="starts_at" value="{{ $initial['starts_at'] ?? '' }}"></div>
-                <div class="form-field"><label for="batch-expires">Expiración (opcional)</label><input id="batch-expires" class="input-text" type="datetime-local" name="expires_at" value="{{ $initial['expires_at'] ?? '' }}"></div>
+                <div class="form-field"><label for="batch-starts">Inicio (vacío: inmediato)</label><input id="batch-starts" class="input-text" type="datetime-local" name="starts_at" value="{{ $initial['starts_at'] ?? '' }}"><small id="batch-starts-error" class="field-error" hidden></small></div>
+                <div class="form-field"><label for="batch-expires">Expiración (opcional)</label><input id="batch-expires" class="input-text" type="datetime-local" name="expires_at" value="{{ $initial['expires_at'] ?? '' }}"><small id="batch-expires-error" class="field-error" hidden></small></div>
             </div>
             <div class="permission-review" data-review-summary aria-live="polite"></div>
         </section>

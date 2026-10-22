@@ -22,7 +22,7 @@
             </div>
         @endif
         <div class="form-actions">
-            <x-ui.boton variante="secondary" data-limpiar-documentos title="Limpiar filtros" aria-label="Limpiar filtros"><x-ui.icono nombre="actualizar" class="icono-sm"/></x-ui.boton>
+            <x-ui.boton variante="secondary" class="icon-only" data-limpiar-documentos title="Limpiar filtros" aria-label="Limpiar filtros"><x-ui.icono nombre="actualizar" class="icono-sm"/></x-ui.boton>
         </div>
     </form>
 @endif
@@ -32,7 +32,7 @@
     @once('permissions-script')<script src="{{ asset('js/permissions.js') }}?v={{ filemtime(public_path('js/permissions.js')) }}" defer></script>@endonce
 @endif
 <div class="table-scroll" role="region" aria-label="Documentos" tabindex="0">
-    <table class="data-table documents-table" id="{{ $tablaId }}">
+    <table class="data-table documents-table" id="{{ $tablaId }}" data-local-pagination>
         <thead>
             <tr>
                 @if($selectable)<th scope="col">Seleccionar</th>@endif
@@ -49,7 +49,7 @@
                     $vigente = $document->versions->sortByDesc('version')->first();
                     $puedeDescargar = Gate::allows('download', $document);
                 @endphp
-                <tr data-documento data-texto="{{ Str::lower(Str::ascii($document->name.' '.$document->description.' '.$vigente->original_name)) }}" data-tipo="{{ $document->type }}">
+                <tr data-pagination-row data-documento data-texto="{{ Str::lower(Str::ascii($document->name.' '.$document->description.' '.$vigente->original_name)) }}" data-tipo="{{ $document->type }}">
                     @if($selectable)<td class="selection-cell"><input type="checkbox" name="documents[]" value="{{ $document->id }}" data-share-document aria-label="Seleccionar {{ $document->name }}"></td>@endif
                     <td class="cell-primary">
                         <strong>{{ $document->name }}</strong>
@@ -89,7 +89,7 @@
         </tbody>
     </table>
 </div>
-<x-ui.pie-tabla :total="$documents->count()" data-pie-documentos="{{ $tablaId }}" role="status"/>
+<x-ui.paginacion-local :tabla="$tablaId" :total="$documents->count()"/>
 @if($selectable)</form>@endif
 @if($editable || $history)
     @foreach($documents as $document)

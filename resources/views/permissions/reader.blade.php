@@ -4,19 +4,19 @@
 @endphp
 <x-layouts.institucional titulo="Administrar acceso">
     <x-ui.migas :enlaces="[route('expedientes.index') => 'Expedientes', route('expedientes.show', $expediente) => $expediente->name]" actual="Administrar acceso"/>
-    <div class="page-title"><div><h1>Administrar acceso</h1><p>{{ $reader->name }} · {{ $reader->username }} · {{ $expediente->folio }}</p></div>
+    <div class="page-title"><div><h1>Administrar acceso</h1><p class="muted">{{ $reader->name }} · {{ $reader->username }} · {{ $expediente->folio }}</p></div>
         <x-ui.boton :href="route('permissions.create', ['expediente' => $expediente, 'readers' => [$reader->id]])"><x-ui.icono nombre="agregar" class="icono-sm"/>Asignar permisos</x-ui.boton>
     </div>
     @if(! $reader->is_active || $reader->role !== 'READER')<p class="alert alert-error">Esta cuenta no puede usar estos permisos: debe ser un lector activo.</p>@endif
-    <section class="card" id="acceso-efectivo"><h2>Acceso efectivo actual</h2>
+    <section class="card" id="acceso-efectivo"><div class="section-title"><x-ui.icono nombre="documento"/><h2>Acceso efectivo actual</h2></div>
         <p class="form-hint">Se suman todos los permisos vigentes. Revocar uno no elimina el acceso concedido por otro. Un permiso al expediente completo incluye documentos futuros. Las nuevas versiones del mismo documento conservan su acceso.</p>
         @if($grants->contains(fn ($g) => $g->document_id === null && $g->status()[0] === 'Activo'))<p class="notice">Tiene acceso al expediente completo. Para retirar acceso a documentos específicos, primero debes revocar el permiso general y después asignar solo los documentos permitidos.</p>@endif
-        <div class="table-scroll" role="region" aria-label="Acceso efectivo" tabindex="0"><table class="data-table"><thead><tr><th>Documento</th><th>Origen del acceso</th></tr></thead><tbody>
+        <div class="table-scroll" role="region" aria-label="Acceso efectivo" tabindex="0"><table class="data-table"><thead><tr><th scope="col">Documento</th><th scope="col">Origen del acceso</th></tr></thead><tbody>
             @forelse($effective as $row)<tr><td>{{ $row['document']->name }}</td><td>{{ $row['sources']->contains(fn ($g) => $g->document_id === null) ? 'Expediente completo' : 'Permiso al documento' }} · {{ $row['sources']->count() }} permisos vigentes</td></tr>
             @empty<tr><td colspan="2" class="empty-state-cell"><div class="empty-state"><x-ui.icono nombre="candado"/><h3>Sin acceso a documentos</h3><p>Esta cuenta no tiene permisos vigentes sobre los documentos actuales.</p></div></td></tr>@endforelse
         </tbody></table></div>{{ $effective->links('pagination.institucional') }}
     </section>
-    <section class="card"><h2>Permisos actuales y programados</h2><p>Selecciona los permisos que deseas retirar. Para quitar todo el acceso, selecciona todos los resultados.</p>
+    <section class="card"><div class="section-title"><x-ui.icono nombre="candado"/><h2>Permisos actuales y programados</h2></div><p class="muted">Selecciona los permisos que deseas retirar. Para quitar todo el acceso, selecciona todos los resultados.</p>
         <form method="POST" action="{{ route('permissions.revoke', $expediente) }}" data-cargando="Revocando permisos…" data-selection-required>
             @csrf<input type="hidden" name="mode" value="grants">
             <x-ui.seleccion-tabla id="reader-grants" titulo="Permisos" :items="$items->values()" field="selection"/>

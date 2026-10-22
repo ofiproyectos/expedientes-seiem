@@ -33,7 +33,7 @@
         <div class="workspace-main">
             <main id="contenido" class="workspace-content" tabindex="-1">
                 @if($errors->any())
-                    <div class="alert alert-error" role="alert"><x-ui.icono nombre="alerta"/><div><strong>No se pudo completar la operación.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div></div>
+                    <div class="alert alert-error" role="alert" tabindex="-1" data-error-summary><x-ui.icono nombre="alerta"/><div><strong>No se pudo completar la operación.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div></div>
                 @endif
                 {{ $slot }}
             </main>

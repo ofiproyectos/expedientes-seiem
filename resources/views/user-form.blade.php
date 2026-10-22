@@ -47,7 +47,8 @@
             </div>
             <div class="form-field">
                 <label for="password_confirmation">Confirmar contraseña @unless($user)<span class="required" aria-hidden="true">*</span>@endunless</label>
-                <div class="password-field"><input class="input-text" id="password_confirmation" type="password" name="password_confirmation" autocomplete="new-password" @required(! $user)><button type="button" class="password-toggle" data-password-toggle aria-controls="password_confirmation" aria-pressed="false" aria-label="Mostrar contraseña">Mostrar</button></div>
+                <div class="password-field"><input class="input-text" id="password_confirmation" type="password" name="password_confirmation" autocomplete="new-password" @required(! $user) @unless($user) aria-required="true" @endunless @error('password_confirmation') aria-invalid="true" aria-describedby="password-confirmation-error" @enderror><button type="button" class="password-toggle" data-password-toggle aria-controls="password_confirmation" aria-pressed="false" aria-label="Mostrar contraseña">Mostrar</button></div>
+                <x-ui.error-campo campo="password_confirmation" id="password-confirmation-error"/>
             </div>
             @if($user)<p class="form-hint">Deja la contraseña vacía para conservarla. Si la cambias, se cierran las sesiones abiertas de esta cuenta.</p>@endif
             <div class="form-actions">

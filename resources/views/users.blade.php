@@ -21,7 +21,7 @@
                 <div class="input-icon"><x-ui.icono nombre="buscar"/><input class="input-text" id="usuarios-q" name="q" value="{{ request('q') }}" maxlength="100" placeholder="Buscar usuario"></div>
             </div>
             <div class="form-actions">
-                <x-ui.boton variante="secondary" :href="route('users.index')" data-limpiar-filtros title="Limpiar filtros" aria-label="Limpiar filtros"><x-ui.icono nombre="actualizar" class="icono-sm"/></x-ui.boton>
+                <x-ui.boton variante="secondary" class="icon-only" :href="route('users.index')" data-limpiar-filtros title="Limpiar filtros" aria-label="Limpiar filtros"><x-ui.icono nombre="actualizar" class="icono-sm"/></x-ui.boton>
                 <noscript><x-ui.boton type="submit">Buscar</x-ui.boton></noscript>
             </div>
         </form>

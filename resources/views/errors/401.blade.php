@@ -1,0 +1,1 @@
+@include('errors.layout', ['titulo' => 'Inicia sesión para continuar', 'descripcion' => 'Necesitas una sesión válida para consultar este recurso.', 'ayuda' => 'Vuelve a iniciar sesión con tu cuenta.'])

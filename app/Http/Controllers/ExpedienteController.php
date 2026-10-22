@@ -41,6 +41,9 @@ class ExpedienteController extends Controller
             ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->to))
             ->orderBy($column, $direction)->orderBy('id', $direction)
             ->paginate(10)->appends($request->only('q', 'responsible', 'from', 'to', 'sort'));
+        if ($expedientes->currentPage() > $expedientes->lastPage()) {
+            return redirect()->to($request->fullUrlWithQuery(['page' => $expedientes->lastPage()]));
+        }
 
         $visible = Expediente::visibleTo($user);
         $responsibles = User::whereIn('id', (clone $visible)->select('responsible_id'))->orderBy('name')->get(['id', 'name']);

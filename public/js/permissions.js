@@ -83,6 +83,12 @@ document.addEventListener('DOMContentLoaded', () => {
             save.disabled = true;
             error.hidden = true;
             summary.textContent = 'La selección se comprobará automáticamente antes de asignar.';
+            summary.setAttribute('aria-busy', 'false');
+            [wizard.elements.starts_at, wizard.elements.expires_at].forEach(field => {
+                field.removeAttribute('aria-invalid');
+                field.removeAttribute('aria-describedby');
+                document.getElementById(`${field.id}-error`).hidden = true;
+            });
             wizard.querySelector('[data-document-picker]').hidden = wizard.elements.scope.value === 'expediente';
             persist();
         };
@@ -97,37 +103,53 @@ document.addEventListener('DOMContentLoaded', () => {
             save.hidden = step !== 2;
             steps[step].querySelector('h2').focus();
         };
-        const showError = message => { error.textContent = message; error.hidden = false; };
+        const showError = message => { error.textContent = message; error.hidden = false; error.focus({ preventScroll: true }); };
         const review = async () => {
             if (!wizard.reportValidity()) return;
             invalidate();
             request = new AbortController();
             const current = revision;
             summary.textContent = 'Revisando permisos existentes…';
+            summary.setAttribute('aria-busy', 'true');
             try {
                 const response = await fetch(wizard.dataset.previewUrl, {
                     method: 'POST', signal: request.signal,
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': wizard.elements._token.value },
                     body: JSON.stringify(payload()),
                 });
+                if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('No se pudo revisar el acceso. Recarga la página y comprueba tu sesión.');
                 const result = await response.json();
                 if (current !== revision) return;
-                if (!response.ok) throw new Error(result.errors ? Object.values(result.errors).flat().join(' ') : 'No se pudo revisar. Actualiza la página si tu sesión terminó.');
+                if (!response.ok) {
+                    ['starts_at', 'expires_at'].forEach(name => {
+                        if (!result.errors?.[name]) return;
+                        const field = wizard.elements[name];
+                        const message = document.getElementById(`${field.id}-error`);
+                        field.setAttribute('aria-invalid', 'true');
+                        field.setAttribute('aria-describedby', message.id);
+                        message.textContent = result.errors[name].join(' ');
+                        message.hidden = false;
+                    });
+                    throw new Error(result.errors ? Object.values(result.errors).flat().join(' ') : 'No se pudo revisar. Actualiza la página si tu sesión terminó.');
+                }
                 token.value = result.token;
                 save.disabled = result.created === 0 && result.consolidated === 0;
                 const data = result.data;
                 const scopeText = data.scope === 'expediente' ? 'el expediente completo (incluye documentos futuros)' : `${result.document_count} documentos específicos (no incluye documentos futuros)`;
+                const fecha = valor => valor.replace(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2}).*$/, '$3/$2/$1 $4');
                 summary.replaceChildren();
                 const lines = [
                     `${result.reader_count} lectores · ${scopeText}.`,
-                    `Consulta y descarga · Desde ${data.starts_at} · ${data.expires_at ? 'Hasta ' + data.expires_at : 'Sin expiración'}.`,
+                    `Consulta y descarga · Desde ${fecha(data.starts_at)} · ${data.expires_at ? 'Hasta ' + fecha(data.expires_at) : 'Sin expiración'}.`,
                     `${result.created} permisos nuevos; ${result.skipped} ya cubiertos y omitidos.`,
                     `${result.consolidated} permisos redundantes se consolidarán sin reducir su vigencia. Los accesos adicionales se conservan.`,
                 ];
                 if (!result.created && !result.consolidated) lines.push('No hay cambios pendientes. Todos los permisos están cubiertos.');
                 lines.forEach(text => { const paragraph = document.createElement('p'); paragraph.textContent = text; summary.append(paragraph); });
             } catch (exception) {
-                if (current === revision && exception.name !== 'AbortError') { summary.textContent = ''; showError(exception.message); }
+                if (current === revision && exception.name !== 'AbortError') { summary.textContent = ''; showError(exception instanceof TypeError ? 'No se pudo conectar. Conservamos tu selección; cambia la fecha o vuelve al paso anterior para reintentar.' : exception.message); }
+            } finally {
+                if (current === revision) summary.setAttribute('aria-busy', 'false');
             }
         };
         const changed = () => {

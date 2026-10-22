@@ -44,7 +44,7 @@
                 </select>
             </div>
             <div class="form-actions">
-                <x-ui.boton variante="secondary" :href="route('expedientes.index')" data-limpiar-filtros title="Limpiar filtros" aria-label="Limpiar filtros"><x-ui.icono nombre="actualizar" class="icono-sm"/></x-ui.boton>
+                <x-ui.boton variante="secondary" class="icon-only" :href="route('expedientes.index')" data-limpiar-filtros title="Limpiar filtros" aria-label="Limpiar filtros"><x-ui.icono nombre="actualizar" class="icono-sm"/></x-ui.boton>
                 <noscript><x-ui.boton type="submit">Aplicar filtros</x-ui.boton></noscript>
             </div>
         </form>
@@ -57,7 +57,7 @@
                     <tr>
                         <th scope="col">Expediente</th>
                         <th scope="col">Responsable</th>
-                        <th scope="col">Documentos</th>
+                        <th scope="col" class="cell-number">Documentos</th>
                         <th scope="col">Creación</th>
                         <th scope="col" class="cell-action">Acción</th>
                     </tr>
@@ -67,7 +67,7 @@
                         <tr>
                             <td class="cell-primary"><strong>{{ $item->name }}</strong><small>{{ $item->folio }}</small></td>
                             <td>{{ $item->responsible->name }}</td>
-                            <td>{{ $item->documents_count }}</td>
+                            <td class="cell-number">{{ $item->documents_count }}</td>
                             <td class="cell-nowrap">{{ $item->created_at->format('d/m/Y') }}<small>{{ $item->created_at->format('H:i') }}</small></td>
                             <td class="cell-action">
                                 @can('update', $item)

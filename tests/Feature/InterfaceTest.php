@@ -112,7 +112,8 @@ class InterfaceTest extends TestCase
             ->assertSee('data-texto="acta de nacimiento copia certificada acta.pdf"', false)->assertSee('Sin coincidencias')
             // Estándar de listados: limpiar filtros como botón de solo icono y conteo en el pie de la tabla.
             ->assertSee('data-limpiar-documentos="data-limpiar-documentos" title="Limpiar filtros" aria-label="Limpiar filtros"', false)
-            ->assertSee('data-pie-documentos="tabla-documentos" role="status">1–2 de 2</span>', false);
+            ->assertSee('data-pagination-for="tabla-documentos"', false)
+            ->assertSee('data-page-range role="status">1–2 de 2</span>', false);
 
         $this->from(route('expedientes.show', $e))
             ->put(route('expedientes.update', $e), ['_dialogo' => 'editar-datos', 'name' => ''])

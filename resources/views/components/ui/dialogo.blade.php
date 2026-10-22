@@ -9,6 +9,14 @@
             </div>
             <button type="button" class="icon-button" data-dialogo-cerrar aria-label="Cerrar"><x-ui.icono nombre="cerrar"/></button>
         </div>
+        @if($errors->any() && old('_dialogo') === $id)
+            <div class="alert alert-error" role="alert" tabindex="-1" data-dialog-error-summary>
+                <x-ui.icono nombre="alerta"/><div><strong>Revisa la información antes de continuar.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+            </div>
+        @endif
+        @if(str_contains((string) $slot, 'aria-required="true"'))
+            <p class="form-hint">Los campos marcados con <span class="required" aria-hidden="true">*</span> son obligatorios.</p>
+        @endif
         {{ $slot }}
     </div>
 </dialog>

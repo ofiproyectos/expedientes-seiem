@@ -1,0 +1,1 @@
+@include('errors.layout', ['titulo' => 'Servicio temporalmente no disponible', 'descripcion' => 'El sistema no puede atender la solicitud en este momento.', 'ayuda' => 'Espera unos minutos y vuelve a intentar el acceso.'])

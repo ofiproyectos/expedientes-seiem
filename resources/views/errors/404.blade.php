@@ -1,0 +1,1 @@
+@include('errors.layout', ['titulo' => 'No encontramos esta página', 'descripcion' => 'El enlace o el documento solicitado no está disponible.', 'ayuda' => 'Comprueba la dirección o vuelve al listado de expedientes.'])

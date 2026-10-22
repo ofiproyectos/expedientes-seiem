@@ -3,12 +3,12 @@
     $vigente = $versiones->first();
     $puedeDescargar = Gate::allows('download', $document);
     $prefijo = 'doc-'.$document->id;
-    $conError = fn (string $dialogo, string $campo) => old('_dialogo') === $dialogo && $errors->has($campo);
+    $conError = fn (string $dialogo, string $campo) => old('_dialogo') === $dialogo && ($errors->has($campo) || ($campo === 'file' && $errors->has('files')));
 @endphp
 @if($history)
     <x-ui.dialogo :id="$prefijo.'-historial'" titulo="Historial de versiones" :descripcion="$document->name.' · cada versión conserva su autor, fecha y hora. Restaurar crea una versión nueva; las existentes no se modifican.'" amplio>
-        <div class="table-scroll" role="region" aria-label="Versiones de {{ $document->name }}" tabindex="0">
-            <table class="data-table">
+        <div class="table-scroll table-scroll-limited" role="region" aria-label="Versiones de {{ $document->name }}" tabindex="0">
+            <table class="data-table" id="{{ $prefijo }}-versiones" data-local-pagination>
                 <thead>
                     <tr>
                         <th scope="col">Versión</th>
@@ -21,31 +21,32 @@
                 <tbody>
                     @foreach($versiones as $version)
                         @php($esVigente = $version->is($vigente))
-                        <tr>
+                        <tr data-pagination-row>
                             <td class="cell-nowrap"><strong>Versión {{ $version->version }}</strong>@if($esVigente)<span class="status-badge status-activo">Vigente</span>@endif</td>
                             <td class="cell-file"><strong>{{ $version->original_name }}</strong><small>{{ $version->format() }} · {{ number_format($version->size / 1024, 1) }} KB</small></td>
                             <td><strong>{{ $version->uploader->name }}</strong><small>{{ $version->created_at->format('d/m/Y H:i') }}</small></td>
                             <td>@if($version->restored_from_version)<span class="status-badge status-en_revision">Restaurado</span>@endif{{ $version->change_description ?? '—' }}</td>
                             <td class="cell-action">
-                                <span class="row-actions">
-                                    <a class="table-action" href="{{ route('documents.viewer', $version) }}"><x-ui.icono nombre="buscar"/>Consultar<span class="sr-only"> versión {{ $version->version }}</span></a>
+                                <button type="button" class="row-menu-button" popovertarget="version-{{ $version->id }}-menu" aria-label="Acciones de la versi?n {{ $version->version }}" aria-haspopup="true"><x-ui.icono nombre="opciones"/></button>
+                                <div class="action-menu" id="version-{{ $version->id }}-menu" popover data-menu-acciones aria-label="Acciones de la versi?n {{ $version->version }}">
+                                    <a href="{{ route('documents.viewer', $version) }}"><x-ui.icono nombre="buscar"/>Consultar<span class="sr-only"> versión {{ $version->version }}</span></a>
                                     @if($puedeDescargar)
-                                        <a class="table-action" href="{{ route('documents.file', ['version' => $version, 'download' => 1]) }}"><x-ui.icono nombre="descargar"/>Descargar<span class="sr-only"> versión {{ $version->version }}</span></a>
+                                        <a href="{{ route('documents.file', ['version' => $version, 'download' => 1]) }}"><x-ui.icono nombre="descargar"/>Descargar<span class="sr-only"> versión {{ $version->version }}</span></a>
                                     @endif
                                     @if($editable && ! $esVigente)
                                         <form method="POST" action="{{ route('versions.restore', $version) }}" data-cargando="Restaurando versión…">
                                             @csrf
-                                            <button type="submit" class="table-action text-button" data-confirm="Se creará la versión {{ $vigente->version + 1 }} con el contenido de la versión {{ $version->version }}, marcada como «Restaurado». Las versiones existentes no se modifican." data-confirm-title="Restaurar versión {{ $version->version }}" data-confirm-accept="Sí, restaurar"><x-ui.icono nombre="devolver"/>Restaurar<span class="sr-only"> versión {{ $version->version }}</span></button>
+                                            <button type="submit" data-confirm="Se creará la versión {{ $vigente->version + 1 }} con el contenido de la versión {{ $version->version }}, marcada como «Restaurado». Las versiones existentes no se modifican." data-confirm-title="Restaurar versión {{ $version->version }}" data-confirm-accept="Sí, restaurar"><x-ui.icono nombre="devolver"/>Restaurar<span class="sr-only"> versión {{ $version->version }}</span></button>
                                         </form>
                                     @endif
-                                </span>
+                                </div>
                             </td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
-        <x-ui.pie-tabla :total="$versiones->count()"/>
+        <x-ui.paginacion-local :tabla="$prefijo.'-versiones'" :total="$versiones->count()"/>
         <div class="modal-actions">
             <button type="button" class="btn-secondary" data-dialogo-cerrar>Cerrar</button>
         </div>
@@ -65,7 +66,8 @@
             </div>
             <div class="form-field">
                 <label for="{{ $prefijo }}-version-change">Descripción del cambio</label>
-                <input class="input-text" id="{{ $prefijo }}-version-change" name="change_description" maxlength="1000" value="{{ old('_dialogo') === $prefijo.'-version' ? old('change_description') : '' }}">
+                <input class="input-text" id="{{ $prefijo }}-version-change" name="change_description" maxlength="1000" value="{{ old('_dialogo') === $prefijo.'-version' ? old('change_description') : '' }}" @if($conError($prefijo.'-version', 'change_description')) aria-describedby="{{ $prefijo }}-version-change-error" @endif @if($conError($prefijo.'-version', 'change_description')) aria-invalid="true" @endif>
+                    <x-ui.error-campo campo="change_description" :id="$prefijo.'-version-change-error'" :dialogo="$prefijo.'-version'"/>
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" data-dialogo-cerrar>Cancelar</button>
@@ -87,14 +89,16 @@
                 </div>
                 <div class="form-field">
                     <label for="{{ $prefijo }}-type">Tipo de documento<span class="required" aria-hidden="true">*</span></label>
-                    <select class="input-text" id="{{ $prefijo }}-type" name="type" required aria-required="true">
+                    <select class="input-text" id="{{ $prefijo }}-type" name="type" required aria-required="true" @if($conError($prefijo.'-clasificacion', 'type')) aria-describedby="{{ $prefijo }}-type-error" @endif @if($conError($prefijo.'-clasificacion', 'type')) aria-invalid="true" @endif>
                         @foreach(config('expedientes.document_types') as $type)<option @selected(($mio ? old('type') : $document->type) === $type)>{{ $type }}</option>@endforeach
                     </select>
+                    <x-ui.error-campo campo="type" :id="$prefijo.'-type-error'" :dialogo="$prefijo.'-clasificacion'"/>
                 </div>
             </div>
             <div class="form-field">
                 <label for="{{ $prefijo }}-description">Descripción</label>
-                <textarea class="input-text" id="{{ $prefijo }}-description" name="description" maxlength="2000">{{ $mio ? old('description') : $document->description }}</textarea>
+                <textarea class="input-text" id="{{ $prefijo }}-description" name="description" maxlength="2000" @if($conError($prefijo.'-clasificacion', 'description')) aria-describedby="{{ $prefijo }}-description-error" @endif @if($conError($prefijo.'-clasificacion', 'description')) aria-invalid="true" @endif>{{ $mio ? old('description') : $document->description }}</textarea>
+                    <x-ui.error-campo campo="description" :id="$prefijo.'-description-error'" :dialogo="$prefijo.'-clasificacion'"/>
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn-secondary" data-dialogo-cerrar>Cancelar</button>

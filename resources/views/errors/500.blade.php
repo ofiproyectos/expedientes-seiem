@@ -1,0 +1,1 @@
+@include('errors.layout', ['titulo' => 'No pudimos completar la operación', 'descripcion' => 'Ocurrió un error en el sistema.', 'ayuda' => 'Vuelve al listado y comprueba si los cambios se guardaron antes de intentarlo de nuevo. Si el problema continúa, contacta al administrador.'])

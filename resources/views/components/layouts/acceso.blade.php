@@ -28,7 +28,7 @@
                 <h2 id="titulo-acceso">{{ $tituloTarjeta }}</h2>
                 @if($intro)<p class="access-intro">{{ $intro }}</p>@endif
                 @if($errors->any())
-                    <div class="alert alert-error" role="alert"><x-ui.icono nombre="alerta"/><p>{{ $errors->first() }}</p></div>
+                    <div class="alert alert-error" role="alert" tabindex="-1" data-error-summary><x-ui.icono nombre="alerta"/><p>{{ $errors->first() }}</p></div>
                 @endif
                 @if(session('status'))
                     <div class="alert alert-success" role="status"><x-ui.icono nombre="check"/><p>{{ session('status') }}</p></div>

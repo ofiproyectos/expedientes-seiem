@@ -1,0 +1,1 @@
+@include('errors.layout', ['titulo' => 'La información cambió', 'descripcion' => 'No se pudo completar la operación con los datos enviados.', 'ayuda' => 'Vuelve al expediente y consulta su información actual antes de realizar otra operación.'])

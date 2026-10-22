@@ -9,7 +9,7 @@
     foreach (array_keys($secciones) as $i => $id) { $numeros[$id] = str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT); }
     // Con menos de tres secciones el índice no orienta: el contenido usa todo el ancho.
     $conIndice = count($secciones) >= 3;
-    $conError = fn (string $dialogo, string $campo) => old('_dialogo') === $dialogo && $errors->has($campo);
+    $conError = fn (string $dialogo, string $campo) => old('_dialogo') === $dialogo && ($errors->has($campo) || $errors->has($campo.'.*'));
     $valor = fn (string $dialogo, string $campo, $actual) => old('_dialogo') === $dialogo ? old($campo) : $actual;
 @endphp
 <x-layouts.institucional :titulo="$expediente->name">
@@ -81,13 +81,13 @@
                     <details class="disclosure disclosure-inset">
                         <summary>Documentos dados de baja ({{ $retired->count() }})</summary>
                         <div class="table-scroll" role="region" aria-label="Documentos dados de baja" tabindex="0">
-                            <table class="data-table">
-                                <thead><tr><th scope="col">Documento</th><th scope="col">Versiones</th><th scope="col">Baja</th><th scope="col">Motivo</th></tr></thead>
+                            <table class="data-table" id="tabla-bajas" data-local-pagination>
+                                <thead><tr><th scope="col">Documento</th><th scope="col" class="cell-number">Versiones</th><th scope="col">Baja</th><th scope="col">Motivo</th></tr></thead>
                                 <tbody>
                                     @foreach($retired as $doc)
-                                        <tr>
+                                        <tr data-pagination-row>
                                             <td><strong>{{ $doc->name }}</strong><small>{{ $doc->type }}</small></td>
-                                            <td>{{ $doc->latestVersion?->version ?? 0 }}</td>
+                                            <td class="cell-number">{{ $doc->latestVersion?->version ?? 0 }}</td>
                                             <td class="cell-nowrap"><strong>{{ $doc->retiredBy?->name }}</strong><small>{{ $doc->deleted_at->format('d/m/Y H:i') }}</small></td>
                                             <td>{{ $doc->deletion_reason }}</td>
                                         </tr>
@@ -95,7 +95,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        <x-ui.pie-tabla :total="$retired->count()"/>
+                        <x-ui.paginacion-local tabla="tabla-bajas" :total="$retired->count()"/>
                     </details>
                 @endif
             </section>
@@ -147,25 +147,28 @@
                 <div class="form-field">
                     <label for="documento-files">Archivos<span class="required" aria-hidden="true">*</span></label>
                     <input class="input-text" id="documento-files" name="files[]" type="file" multiple accept=".pdf,.docx,.xlsx,.jpg,.jpeg,.png" required aria-required="true" aria-describedby="documento-files-hint @if($conError('cargar-documentos', 'files')) documento-files-error @endif" @if($conError('cargar-documentos', 'files')) aria-invalid="true" @endif>
-                    <small id="documento-files-hint" class="form-hint">Uno o varios archivos PDF, DOCX, XLSX, JPG o PNG; máximo 10 MB cada uno.</small>
+                    <small id="documento-files-hint" class="form-hint">Hasta 20 archivos PDF, DOCX, XLSX, JPG o PNG; máximo 10 MB cada uno.</small>
                     <x-ui.error-campo campo="files" id="documento-files-error" dialogo="cargar-documentos"/>
                 </div>
                 <div class="form-grid two">
                     <div class="form-field">
                         <label for="documento-type">Tipo de documento<span class="required" aria-hidden="true">*</span></label>
-                        <select class="input-text" id="documento-type" name="type" required aria-required="true">
+                        <select class="input-text" id="documento-type" name="type" required aria-required="true" @if($conError('cargar-documentos', 'type')) aria-describedby="documento-type-error" @endif @if($conError('cargar-documentos', 'type')) aria-invalid="true" @endif>
                             @foreach(config('expedientes.document_types') as $type)<option @selected($valor('cargar-documentos', 'type', null) === $type)>{{ $type }}</option>@endforeach
                         </select>
+                    <x-ui.error-campo campo="type" id="documento-type-error" dialogo="cargar-documentos"/>
                     </div>
                     <div class="form-field">
                         <label for="documento-title">Título</label>
-                        <input class="input-text" id="documento-title" name="title" value="{{ $valor('cargar-documentos', 'title', '') }}" maxlength="255" aria-describedby="documento-title-hint">
+                        <input class="input-text" id="documento-title" name="title" value="{{ $valor('cargar-documentos', 'title', '') }}" maxlength="255" aria-describedby="documento-title-hint @if($conError('cargar-documentos', 'title')) documento-title-error @endif" @if($conError('cargar-documentos', 'title')) aria-invalid="true" @endif>
+                    <x-ui.error-campo campo="title" id="documento-title-error" dialogo="cargar-documentos"/>
                     <small id="documento-title-hint" class="form-hint">Solo al cargar un archivo. Se usa como nombre al guardarlo y descargarlo, conservando su extensión. Si se omite, se conserva el nombre original.</small>
                     </div>
                 </div>
                 <div class="form-field">
                     <label for="documento-description">Descripción</label>
-                    <input class="input-text" id="documento-description" name="description" value="{{ $valor('cargar-documentos', 'description', '') }}" maxlength="2000">
+                    <input class="input-text" id="documento-description" name="description" value="{{ $valor('cargar-documentos', 'description', '') }}" maxlength="2000" @if($conError('cargar-documentos', 'description')) aria-describedby="documento-description-error" @endif @if($conError('cargar-documentos', 'description')) aria-invalid="true" @endif>
+                    <x-ui.error-campo campo="description" id="documento-description-error" dialogo="cargar-documentos"/>
                 </div>
                 <div class="modal-actions">
                     <button type="button" class="btn-secondary" data-dialogo-cerrar>Cancelar</button>

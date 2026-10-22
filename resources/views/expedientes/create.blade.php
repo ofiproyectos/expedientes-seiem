@@ -8,7 +8,7 @@
     </div>
     <section class="card narrow-card" aria-labelledby="titulo-datos">
         <div class="section-title"><x-ui.icono nombre="documento"/><h2 id="titulo-datos">Datos del expediente</h2></div>
-        <p class="form-hint">El folio (por ejemplo, EXP-{{ now()->format('Y') }}-000001) se asigna automáticamente al crearlo y el expediente se crea en estado <strong>Activo</strong> con usted como responsable. Los campos marcados con <span class="required" aria-hidden="true">*</span> son obligatorios.</p>
+        <p class="form-hint">El folio (por ejemplo, EXP-{{ now()->format('Y') }}-000001) se asigna automáticamente al crearlo, con tu cuenta como responsable. Los campos marcados con <span class="required" aria-hidden="true">*</span> son obligatorios.</p>
         <form method="POST" action="{{ route('expedientes.store') }}" data-cargando="Creando expediente…">
             @csrf
             <div class="form-field">

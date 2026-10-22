@@ -19,11 +19,11 @@
     </div>
     <div class="table-scroll" role="region" aria-label="{{ $titulo }}" tabindex="0">
         <table class="data-table selection-table">
-            <thead><tr><th scope="col" class="selection-cell"><input type="checkbox" data-selection-page aria-label="Seleccionar esta página"></th><th scope="col">{{ $columna ?? $titulo }}</th><th scope="col">{{ $detalle }}</th>@if($hasLinks)<th scope="col" class="cell-action">Acción</th>@endif</tr></thead>
+            <thead><tr><th scope="col" class="selection-cell"><label><input type="checkbox" data-selection-page aria-label="Seleccionar esta página"></label></th><th scope="col">{{ $columna ?? $titulo }}</th><th scope="col">{{ $detalle }}</th>@if($hasLinks)<th scope="col" class="cell-action">Acción</th>@endif</tr></thead>
             <tbody>
                 @foreach($items as $item)
                     <tr data-selection-row data-search="{{ $item['label'].' '.($item['secondary'] ?? '').' '.$item['detail'] }}">
-                        <td class="selection-cell"><input type="checkbox" value="{{ $item['id'] }}" data-selection-item @checked(in_array((int) $item['id'], array_map('intval', $selected))) aria-label="Seleccionar {{ $item['label'] }}"></td>
+                        <td class="selection-cell"><label><input type="checkbox" value="{{ $item['id'] }}" data-selection-item @checked(in_array((int) $item['id'], array_map('intval', $selected))) aria-label="Seleccionar {{ $item['label'] }}"></label></td>
                         <td class="cell-primary"><strong>{{ $item['label'] }}</strong>@if(isset($item['secondary']))<small>{{ $item['secondary'] }}</small>@endif</td><td>{{ $item['detail'] }}</td>
                         @if(isset($item['href']))<td class="cell-action"><a href="{{ $item['href'] }}" class="table-action"><x-ui.icono nombre="editar" class="icono-sm"/>Administrar<span class="sr-only"> acceso de {{ $item['label'] }}</span></a></td>@endif
                     </tr>

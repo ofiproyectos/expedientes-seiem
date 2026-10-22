@@ -1,0 +1,1 @@
+@include('errors.layout', ['titulo' => 'La sesión terminó', 'descripcion' => 'No se pudo verificar el envío del formulario.', 'ayuda' => 'Inicia sesión de nuevo y comprueba los datos antes de volver a enviarlos.'])

@@ -1,0 +1,1 @@
+@include('errors.layout', ['titulo' => 'Demasiados intentos', 'descripcion' => 'Espera un momento antes de volver a intentar la operación.', 'ayuda' => 'No vuelvas a enviar el formulario repetidamente. Podrás intentarlo de nuevo más tarde.'])
