@@ -1,4 +1,4 @@
-{{-- Documentos: una fila por documento con su versión vigente (manual §8.3.1). Todas las acciones de la fila están en un solo botón (manual §7.13). --}}
+{{-- Documentos: una fila por documento con su versión vigente (manual §8.3.1). El nombre del PDF permite abrir el visor; las demás operaciones están en el menú de acciones. --}}
 @php
     $tablaId = $tablaId ?? 'tabla-documentos';
     $tipos = $documents->pluck('type')->unique()->sort()->values();
@@ -47,12 +47,13 @@
             @foreach($documents as $document)
                 @php
                     $vigente = $document->versions->sortByDesc('version')->first();
+                    $esPdf = $vigente->mime === 'application/pdf';
                     $puedeDescargar = Gate::allows('download', $document);
                 @endphp
                 <tr data-pagination-row data-documento data-texto="{{ Str::lower(Str::ascii($document->name.' '.$document->description.' '.$vigente->original_name)) }}" data-tipo="{{ $document->type }}">
                     @if($selectable)<td class="selection-cell"><input type="checkbox" name="documents[]" value="{{ $document->id }}" data-share-document aria-label="Seleccionar {{ $document->name }}"></td>@endif
                     <td class="cell-primary">
-                        <strong>{{ $document->name }}</strong>
+                        <strong>@if($esPdf)<a href="{{ route('documents.viewer', $vigente) }}" aria-label="Ver PDF: {{ $document->name }}">{{ $document->name }}</a>@else{{ $document->name }}@endif</strong>
                         @if($document->description)<small class="cell-truncate" title="{{ $document->description }}">{{ $document->description }}</small>@endif
                     </td>
                     <td data-label="Tipo">{{ $document->type }}</td>
@@ -61,7 +62,9 @@
                     <td class="cell-action">
                         <button type="button" class="row-menu-button" popovertarget="doc-{{ $document->id }}-menu" aria-haspopup="true" aria-label="Acciones de {{ $document->name }}" title="Acciones"><x-ui.icono nombre="opciones"/></button>
                         <div class="action-menu" id="doc-{{ $document->id }}-menu" popover data-menu-acciones aria-label="Acciones de {{ $document->name }}">
-                            <a href="{{ route('documents.viewer', $vigente) }}"><x-ui.icono nombre="buscar"/>Consultar</a>
+                            @if($esPdf)
+                                <a href="{{ route('documents.viewer', $vigente) }}"><x-ui.icono nombre="buscar"/>Ver PDF</a>
+                            @endif
                             @if($puedeDescargar)
                                 <a href="{{ route('documents.file', ['version' => $vigente, 'download' => 1]) }}"><x-ui.icono nombre="descargar"/>Descargar</a>
                             @endif

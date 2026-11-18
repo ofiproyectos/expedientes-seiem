@@ -29,7 +29,9 @@
                             <td class="cell-action">
                                 <button type="button" class="row-menu-button" popovertarget="version-{{ $version->id }}-menu" aria-label="Acciones de la versi?n {{ $version->version }}" aria-haspopup="true"><x-ui.icono nombre="opciones"/></button>
                                 <div class="action-menu" id="version-{{ $version->id }}-menu" popover data-menu-acciones aria-label="Acciones de la versi?n {{ $version->version }}">
-                                    <a href="{{ route('documents.viewer', $version) }}"><x-ui.icono nombre="buscar"/>Consultar<span class="sr-only"> versión {{ $version->version }}</span></a>
+                                    @if($version->mime === 'application/pdf')
+                                        <a href="{{ route('documents.viewer', $version) }}"><x-ui.icono nombre="buscar"/>Ver PDF<span class="sr-only"> versión {{ $version->version }}</span></a>
+                                    @endif
                                     @if($puedeDescargar)
                                         <a href="{{ route('documents.file', ['version' => $version, 'download' => 1]) }}"><x-ui.icono nombre="descargar"/>Descargar<span class="sr-only"> versión {{ $version->version }}</span></a>
                                     @endif
