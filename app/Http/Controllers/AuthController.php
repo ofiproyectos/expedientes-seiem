@@ -14,6 +14,7 @@ class AuthController extends Controller
     /** RF-AUT-001: usuario y contraseña; mensaje genérico; cuentas desactivadas rechazadas. */
     public function login(Request $request)
     {
+        abort_if(config('identity.enabled'), 404);
         $data = $request->validate(['username' => 'required|string|max:50', 'password' => 'required|string|max:1024']);
         $username = Str::lower(trim($data['username']));
         $key = 'login:'.hash('sha256', $username.'|'.$request->ip());
@@ -40,6 +41,7 @@ class AuthController extends Controller
     /** RF-AUT-002: invalida la sesión del lado del servidor. */
     public function logout(Request $request)
     {
+        if (config('identity.enabled')) return app(InstitutionalAuthController::class)->logout($request);
         Audit::record('auth.logout', 'Cierre de sesión', $request->user());
         Auth::logout();
         $request->session()->invalidate();

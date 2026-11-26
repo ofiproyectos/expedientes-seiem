@@ -14,7 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware()
+    ->withMiddleware(function (\Illuminate\Foundation\Configuration\Middleware $middleware) {
+        $middleware->validateCsrfTokens(except: ['auth/backchannel-logout']);
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         // RF-AUD-001 CA-02: toda denegación de autorización queda registrada (las de archivos se registran con más detalle en su controlador).
         $exceptions->render(function (Throwable $e, Request $request) {

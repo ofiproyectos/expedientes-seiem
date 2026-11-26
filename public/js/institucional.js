@@ -101,6 +101,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         menu.addEventListener('toggle', event => {
+            const trigger = document.querySelector(`[popovertarget="${menu.id}"]`);
+            trigger?.setAttribute('aria-expanded', String(event.newState === 'open'));
+            if (event.newState !== 'open' && menu.contains(document.activeElement)) trigger?.focus();
             if (event.newState !== 'open') return;
             colocarMenu(menu);
             menu.querySelector('a, button')?.focus({ preventScroll: true });

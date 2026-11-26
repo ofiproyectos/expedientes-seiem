@@ -4,7 +4,7 @@
             <h1>Usuarios y permisos</h1>
             <p class="muted">Administra las cuentas, los roles y el acceso al sistema.</p>
         </div>
-        <x-ui.boton :href="route('users.create')"><x-ui.icono nombre="agregar" class="icono-sm"/>Crear usuario</x-ui.boton>
+        @unless(config('identity.enabled'))<x-ui.boton :href="route('users.create')"><x-ui.icono nombre="agregar" class="icono-sm"/>Crear usuario</x-ui.boton>@endunless
     </div>
 
     <section class="card" aria-labelledby="titulo-usuarios" data-listado-dinamico>

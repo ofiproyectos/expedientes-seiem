@@ -45,3 +45,7 @@ Las pruebas usan SQLite en memoria, sin tocar la base MySQL local.
 No se crean cuentas con credenciales predeterminadas. Las migraciones históricas se conservan para actualizar instalaciones existentes; no se deben eliminar por referirse a funciones retiradas.
 
 Documentación oficial: https://laravel.com/framework/docs/13.x/installation
+
+## Referencia historica de plataforma
+
+Fuente contrastada por contenido con /opt/seiem/expedientes y el contenedor seiem-expedientes-1 de 192.168.100.54 el 26 de noviembre de 2026. No incluye secretos, bases de produccion ni documentos. La integracion y el despliegue existentes estan descritos en deploy/vm/README.md. Esta rama conserva el estado anterior a la unificacion y no se mantiene como una implementacion paralela.

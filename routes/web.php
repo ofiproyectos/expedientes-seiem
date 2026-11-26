@@ -8,13 +8,17 @@ use App\Http\Controllers\ExpedienteController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureActiveUser;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 Route::redirect('/', '/expedientes');
+Route::get('/auth/redirect', [\App\Http\Controllers\InstitutionalAuthController::class, 'redirect'])->name('institution.login')->middleware('throttle:30,1');
+Route::get('/auth/callback', [\App\Http\Controllers\InstitutionalAuthController::class, 'callback'])->middleware('throttle:30,1');
+Route::post('/auth/backchannel-logout', [\App\Http\Controllers\InstitutionalAuthController::class, 'backchannel'])->middleware('throttle:120,1');
 Route::middleware('guest')->group(function () {
-    Route::view('/login', 'auth.login')->name('login');
+    Route::get('/login', function (Request $request) { return config('identity.enabled') ? app(\App\Http\Controllers\InstitutionalAuthController::class)->redirect($request) : view('auth.login'); })->name('login')->middleware('throttle:30,1');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1');
 });
-Route::middleware(['auth', EnsureActiveUser::class])->group(function () {
+Route::middleware(['auth', EnsureActiveUser::class, \App\Http\Middleware\VerifyPlatformAccess::class])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::resource('expedientes', ExpedienteController::class)->only('index', 'create', 'store', 'show', 'update');

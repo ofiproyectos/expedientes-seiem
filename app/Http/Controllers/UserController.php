@@ -30,6 +30,7 @@ class UserController extends Controller
     public function create(Request $request)
     {
         $this->authorizeAdmin($request);
+        if (config('identity.enabled')) return redirect()->away(rtrim(config('identity.portal_url'), '/').'/administracion/accesos/crear');
 
         return view('user-form', ['user' => null]);
     }
@@ -44,6 +45,25 @@ class UserController extends Controller
     public function save(Request $request, ?User $user = null)
     {
         $this->authorizeAdmin($request);
+        if (config('identity.enabled')) {
+            abort_unless($user, 404);
+            $data = $request->validate([
+                'name' => ['sometimes', Rule::in([$user->name])], 'username' => ['sometimes', Rule::in([$user->username])],
+                'role' => ['required', Rule::in(User::ROLES)], 'is_active' => ['required', 'boolean'],
+                'password' => ['prohibited'], 'password_confirmation' => ['prohibited'],
+            ]);
+            if ($user->is($request->user()) && ($data['role'] !== 'ADMIN' || ! $request->boolean('is_active'))) {
+                return back()->withErrors(['role' => 'No puedes desactivar ni quitar el rol de administrador de tu propia cuenta.']);
+            }
+            $before = $user->only('role', 'is_active');
+            $user->update(['role' => $data['role'], 'is_active' => $request->boolean('is_active')]);
+            if (! $user->is_active) {
+                DB::table('sessions')->where('user_id', $user->id)->delete();
+                DB::table('identity_sessions')->where('user_id', $user->id)->delete();
+            }
+            Audit::record('user.updated', 'Actualización de rol y acceso local', $user, ['before' => $before, 'after' => $user->only('role', 'is_active')]);
+            return redirect()->route('users.index')->with('status', 'Permisos del usuario guardados.');
+        }
         $request->merge(['username' => Str::lower(trim((string) $request->input('username')))]);
         $data = $request->validate([
             'name' => 'required|string|max:255',

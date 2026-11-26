@@ -1,6 +1,7 @@
 @props(['nombre' => 'documento'])
 @php
     $rutas = [
+        'chevron' => 'M6 9l6 6 6-6',
         'documento' => 'M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8M14 3v6h6M8 13h8M8 17h5M14 3l7 6',
         'agregar' => 'M12 5v14M5 12h14',
         'inicio' => 'M3 10l9-7 9 7M5 9v12h14V9M9 21v-7h6v7',

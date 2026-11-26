@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+/deploy/vm/composer-cache
+__pycache__/
