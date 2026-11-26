@@ -1,0 +1,17 @@
+*
+!app/**
+!bootstrap/app.php
+!bootstrap/providers.php
+!config/**
+!database/migrations/**
+!resources/**
+!lang/**
+!public/**
+public/storage
+!routes/**
+!artisan
+!composer.json
+!composer.lock
+!deploy/vm/Dockerfile
+!deploy/vm/entrypoint.sh
+!deploy/vm/php-production.ini

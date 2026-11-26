@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "jumbojett/openid-connect-php": "^1.0.2",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0"
     },
@@ -41,8 +42,7 @@
             "@php artisan serve"
         ],
         "test": [
-            "@php artisan config:clear --ansi",
-            "@php artisan test"
+            "@php vendor/phpunit/phpunit/phpunit"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

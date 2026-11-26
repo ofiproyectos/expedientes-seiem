@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="{{ asset('css/institucional.css') }}?v={{ filemtime(public_path('css/institucional.css')) }}">
     <script src="{{ asset('js/institucional.js') }}?v={{ filemtime(public_path('js/institucional.js')) }}" defer></script>
 </head>
-<body @class(['sin-menu' => ! $conMenu])>
+<body @class(['sin-menu' => ! $conMenu, 'with-platform' => config('identity.enabled')])>
     <a class="skip-link" href="#contenido">Saltar al contenido</a>
     <x-ui.encabezado :con-menu="$conMenu" :inicio="route('expedientes.index')"/>
     <div class="workspace-shell">
@@ -26,7 +26,7 @@
                 <p class="nav-label nav-section">Administración</p>
                 <a href="{{ route('users.index') }}" @if(request()->routeIs('users.*')) aria-current="page" @endif><x-ui.icono nombre="usuarios"/>Usuarios y permisos</a>
                 @endif
-                <div class="sidebar-bottom"><form method="POST" action="{{ route('logout') }}" data-cargando="Cerrando sesión…">@csrf<button class="logout-button" type="submit"><x-ui.icono nombre="salir"/>Cerrar sesión</button></form></div>
+                @unless(config('identity.enabled'))<div class="sidebar-bottom"><form method="POST" action="{{ route('logout') }}" data-cargando="Cerrando sesión…">@csrf<button class="logout-button" type="submit"><x-ui.icono nombre="salir"/>Cerrar sesión</button></form></div>@endunless
             </nav>
         </aside>
         @endif

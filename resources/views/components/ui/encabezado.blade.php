@@ -8,12 +8,17 @@
             </a>
         </div>
         <div class="header-context">
+            @if(config('identity.enabled'))<a class="header-platform-link" href="{{ config('identity.portal_url') }}">Plataforma Institucional SEIEM</a>@endif
             <span class="platform-label">{{ config('expedientes.platform_name') }}</span>
             @auth
+                @if(config('identity.enabled'))
+                    <x-ui.cuenta/>
+                @else
                 <span class="header-user"><span><span class="header-user-name" title="{{ auth()->user()->username }}">{{ auth()->user()->username }}</span><small>{{ auth()->user()->roleLabel() }}</small></span></span>
                 @unless($conMenu)
                     <form method="POST" action="{{ route('logout') }}" data-cargando="Cerrando sesión…">@csrf<button class="header-logout" type="submit" aria-label="Cerrar sesión" title="Cerrar sesión"><x-ui.icono nombre="salir" class="icono-sm"/></button></form>
                 @endunless
+                @endif
             @else
                 <span class="header-label">{{ $etiqueta ?? 'Acceso de personal' }}</span>
             @endauth
