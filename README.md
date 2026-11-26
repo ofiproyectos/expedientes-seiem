@@ -1,51 +1,77 @@
-# Expedientes
+# Expedientes SEIEM
 
-Sistema de gestión de expedientes SEIEM con Laravel 13, PHP 8.4 y MySQL. La interfaz usa Blade y archivos CSS/JavaScript locales, sin compilación ni dependencias de Node.
+Una implementación de expedientes, documentos, versiones, permisos y auditoría, con desarrollo autónomo y producción integrada a la Plataforma Institucional SEIEM. PHP 8.4, Laravel 13 y Blade; no requiere Node. Desarrollo puede usar SQLite; producción conserva MySQL y sus archivos persistentes.
 
-## Iniciar en este equipo
+## Ramas e historia
 
-La conexión local se configura en `.env`. Las credenciales no se incluyen en `.env.example` ni deben versionarse.
+`main` permanece intacta. `independiente` conserva el commit `117c8e9`, anterior a la integración. `Plataforma` conserva la fuente institucional contrastada con el servidor antes de esta reorganización. `unificacion` concentra el desarrollo futuro. Las dos primeras son referencias históricas, no variantes que deban recibir cada función por separado.
 
-1. Crear la base MySQL `expedientes` y autorizar al usuario de la aplicación sobre ella.
-2. Ejecutar `php artisan migrate`.
-3. Crear el primer administrador con `php artisan expedientes:admin nombre.usuario --name="Nombre completo"`. La contraseña se solicita oculta en la terminal (mínimo 12 caracteres, letras y números).
-4. Ejecutar `php artisan serve` y abrir http://127.0.0.1:8000.
-5. En otra terminal ejecutar `php artisan schedule:work` para marcar los permisos expirados. La comprobación de acceso bloquea permisos vencidos incluso sin este proceso.
+El diagnóstico, la arquitectura y los pendientes están en [docs/UNIFICACION.md](docs/UNIFICACION.md).
 
-En una instalación nueva: `composer install`, copiar `.env.example` a `.env`, configurar MySQL y ejecutar `php artisan key:generate` antes de las migraciones. También se puede iniciar el servidor con `composer dev`.
+## Desarrollo sin portal ni Keycloak
 
-## Funcionamiento
-
-Se inicia sesión con **nombre de usuario y contraseña** (no se usa correo).
-
-1. El **Administrador** crea y edita las cuentas en **Usuarios y permisos**.
-2. El **Editor** crea expedientes y administra sus documentos. Los expedientes no tienen estado ni tipos diferentes.
-3. El **Administrador** asigna permisos a uno o varios **Lectores**, sobre todo el expediente o documentos seleccionados. Cada permiso de lectura incluye descarga.
-4. La asignación por lotes revisa permisos existentes, evita duplicados y consolida los que estén completamente cubiertos, conservando los de mayor vigencia. Se pueden revocar permisos individualmente o por lote.
-5. El título del documento determina el nombre del archivo guardado y descargado, manteniendo su extensión. Si se edita el título, la siguiente descarga usa el nuevo nombre.
-
-Usuarios y expedientes se muestran de 10 en 10, con búsquedas dinámicas. Los identificadores internos de roles son `ADMIN`, `LOADER` y `READER`; sus etiquetas visibles son Administrador, Editor y Lector.
-
-Las operaciones se registran en la base de datos. La auditoría no tiene pantalla ni rutas públicas. El historial de versiones sigue disponible para administrar y restaurar documentos.
-
-No hay recuperación por correo ni página de cambio de contraseña propia: el administrador la restablece al editar el usuario. Dejarla vacía conserva la actual; cambiarla cierra las sesiones abiertas de la cuenta.
-
-En producción se debe servir por HTTPS: con `APP_ENV=production` la cookie de sesión se marca como segura (o fijar `SESSION_SECURE_COOKIE=true`).
-
-## Verificar
+En un checkout nuevo, desde la raíz, con PHP 8.4, Composer y extensiones PDO SQLite, mbstring, XML, fileinfo, cURL, ZIP e Intl:
 
 ```powershell
-php artisan test
-php artisan migrate:status
+Copy-Item .env.example .env
+New-Item -ItemType File database/dev.sqlite
+composer install --no-interaction --prefer-dist
+php artisan key:generate
+php artisan migrate
+php artisan expedientes:demo
+composer dev
+```
+
+No reemplazar un `.env` ni una base existentes. El ejemplo selecciona `APP_ENV=local`, `OIDC_ENABLED=false`, SQLite `database/dev.sqlite` y documentos en `storage/framework/testing/dev-documents`. Ejecutar desde la raíz; también pueden configurarse rutas absolutas. Retirar variables institucionales heredadas de otra terminal antes de arrancar.
+
+Abrir http://127.0.0.1:8000. El comando demo genera cuatro cuentas ficticias (administrador, editor, lector y lector suspendido), claves aleatorias mostradas una vez, un expediente y permiso temporal para el lector. No reemplaza cuentas existentes y solo funciona con esa base y carpeta aisladas. Cargar documentos ficticios desde la interfaz.
+
+Alternativamente, sin datos demo:
+
+```powershell
+php artisan expedientes:admin nombre.usuario --name="Nombre completo"
+```
+
+Solicita una contraseña oculta de al menos 12 caracteres, letras y números. No hay contraseñas predeterminadas. En otra terminal con el mismo entorno:
+
+```powershell
+php artisan schedule:work
+```
+
+Los permisos vencidos también se bloquean en cada acceso sin planificador. Para desarrollar con MySQL, configurar una base exclusiva de pruebas en el archivo privado; el comando demo seguirá bloqueado fuera de su SQLite aislado.
+
+## Identidad y permisos
+
+El servidor selecciona el perfil mediante la variable existente `OIDC_ENABLED`; no hay selector para visitantes. Debe ser un booleano explícito. Configuración ausente, desconocida o contradictoria impide el arranque.
+
+| Responsabilidad | Desarrollo local | Producción institucional |
+| --- | --- | --- |
+| Autenticación | Usuario y contraseña real, hash y límites de intentos | Keycloak OIDC, PKCE, state, nonce y firma RS256 |
+| Identidad interna | ID de users | Mismo ID; vínculo único issuer + subject |
+| Cuentas y credenciales | Administración local autorizada | Gestión exclusiva en plataforma |
+| Roles/restricciones | ADMIN, LOADER, READER y suspensión | Los mismos, administrados en Expedientes |
+| Acceso a la aplicación | Sin dependencia del portal | Comprobación central por petición protegida |
+
+El administrador gestiona usuarios y permisos; el editor crea y administra sus expedientes; el lector accede a lo autorizado. Ser administrador del portal no concede ADMIN del sistema. Las identidades nuevas entran como lector, salvo un subject de bootstrap explícitamente autorizado.
+
+En producción, el formulario de roles es separado, con identidad de consulta. Se rechazan rutas locales de creación de cuentas, login por contraseña y solicitudes para modificar credenciales/datos centrales. También se bloquean los comandos de administrador local y demo. El perfil local solo se permite en local/testing.
+
+Las nuevas identidades institucionales tienen `password=NULL`; no se vinculan por correo, nombre o usuario. La migración conserva IDs, contraseñas anteriores, relaciones y datos. No se sincronizan usuarios entre instalaciones al publicar código.
+
+## Producción y publicación
+
+[deploy/production.env.example](deploy/production.env.example) es una plantilla sin secretos. Completar privadamente clave de aplicación, MySQL, cliente OIDC propio, issuer, callback, portal y credencial de API de acceso. Se requiere HTTPS, debug deshabilitado, sesiones database y cookie segura. Una caída de identidad/portal deniega acceso sin habilitar login local.
+
+El logout borra la sesión local y solicita cierre institucional si tiene ID token. El backchannel verificado invalida las sesiones correspondientes. El cierre local sigue disponible durante fallas de la API central. La inactividad se limita con SESSION_LIFETIME y la revocación central se comprueba por petición protegida.
+
+Flujo: desarrollo → revisión/pruebas → commit/tag identificado → paquete/imagen → respaldo → despliegue programado. Los comandos de construcción y recuperación están en [deploy/vm/README.md](deploy/vm/README.md). No copiar funciones manualmente entre ramas históricas. No desplegar esta reorganización ni su migración sobre producción sin una instrucción explícita.
+
+## Verificación
+
+```powershell
+composer validate --no-check-publish
+composer test
 php artisan route:list --except-vendor
 ```
 
-Las pruebas usan SQLite en memoria, sin tocar la base MySQL local.
-
-No se crean cuentas con credenciales predeterminadas. Las migraciones históricas se conservan para actualizar instalaciones existentes; no se deben eliminar por referirse a funciones retiradas.
-
-Documentación oficial: https://laravel.com/framework/docs/13.x/installation
-
-## Referencia historica de plataforma
-
-Fuente contrastada por contenido con /opt/seiem/expedientes y el contenedor seiem-expedientes-1 de 192.168.100.54 el 26 de noviembre de 2026. No incluye secretos, bases de produccion ni documentos. La integracion y el despliegue existentes estan descritos en deploy/vm/README.md. Esta rama conserva el estado anterior a la unificacion y no se mantiene como una implementacion paralela.
+Composer test ejecuta PHPUnit directamente, con SQLite en memoria y su configuración de pruebas. Las respuestas controladas y claves RSA efímeras no sustituyen la aceptación institucional real. Véanse resultados y límites en docs/UNIFICACION.md.

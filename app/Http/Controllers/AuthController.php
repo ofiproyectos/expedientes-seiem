@@ -41,7 +41,9 @@ class AuthController extends Controller
     /** RF-AUT-002: invalida la sesión del lado del servidor. */
     public function logout(Request $request)
     {
-        if (config('identity.enabled')) return app(InstitutionalAuthController::class)->logout($request);
+        if (config('identity.enabled')) {
+            return app(InstitutionalAuthController::class)->logout($request);
+        }
         Audit::record('auth.logout', 'Cierre de sesión', $request->user());
         Auth::logout();
         $request->session()->invalidate();

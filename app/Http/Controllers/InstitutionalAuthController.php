@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Jumbojett\OpenIDConnectClientException;
 
 class InstitutionalAuthController extends Controller
@@ -47,6 +46,7 @@ class InstitutionalAuthController extends Controller
             || (int) $request->session()->get('oidc.started_at', 0) < time() - 600
             || ! is_string($request->query('code'))) {
             $request->session()->forget('oidc');
+
             return $this->message('No se pudo completar el acceso', 'La solicitud de acceso venció o no es válida. Inicia sesión nuevamente.', 400);
         }
         try {
@@ -61,6 +61,7 @@ class InstitutionalAuthController extends Controller
             $claims = $client->getVerifiedClaims();
         } catch (OpenIDConnectClientException) {
             $request->session()->forget('oidc');
+
             return $this->message('No se pudo completar el acceso', 'No fue posible verificar tu identidad. Inicia sesión nuevamente.', 400);
         }
         $issuer = config('identity.issuer');
@@ -74,7 +75,7 @@ class InstitutionalAuthController extends Controller
             $candidate = mb_strtolower((string) ($claims->preferred_username ?? ''));
             $user->username = preg_match('/^[a-z0-9._-]{1,50}$/', $candidate) && ! User::where('username', $candidate)->exists()
                 ? $candidate : 'sso.'.substr(hash('sha256', $issuer.'|'.$claims->sub), 0, 40);
-            $user->password = Str::random(64);
+            $user->password = null;
             $user->role = hash_equals((string) config('identity.bootstrap_admin_sub'), $claims->sub) ? 'ADMIN' : 'READER';
             $user->is_active = true;
         }
@@ -94,6 +95,7 @@ class InstitutionalAuthController extends Controller
             'session_id' => $request->session()->getId(), 'user_id' => $user->id,
             'provider_sid' => $claims->sid, 'created_at' => now(),
         ]);
+
         return redirect()->route('expedientes.index');
     }
 
@@ -114,6 +116,7 @@ class InstitutionalAuthController extends Controller
                 return $this->message('Sesión local cerrada', 'No fue posible confirmar el cierre institucional. Puedes volver a la plataforma.', 503);
             }
         }
+
         return redirect()->away(config('identity.portal_url'));
     }
 
@@ -151,6 +154,7 @@ class InstitutionalAuthController extends Controller
         $ids = $query->pluck('session_id');
         DB::table('sessions')->whereIn('id', $ids)->delete();
         DB::table('identity_sessions')->whereIn('session_id', $ids)->delete();
+
         return response('', 200)->header('Cache-Control', 'no-store');
     }
 

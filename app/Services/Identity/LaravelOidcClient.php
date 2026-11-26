@@ -46,20 +46,36 @@ class LaravelOidcClient extends OpenIDConnectClient
 
     public function verifyJWTSignature(string $jwt): bool
     {
-        $header = json_decode(\Jumbojett\base64url_decode(explode('.', $jwt)[0]), true);
-        return ($header['alg'] ?? null) === 'RS256' && parent::verifyJWTSignature($jwt);
+        $parts = explode('.', $jwt);
+        if (count($parts) !== 3) {
+            return false;
+        }
+        $header = json_decode(\Jumbojett\base64url_decode($parts[0]), true);
+
+        return is_array($header) && ($header['alg'] ?? null) === 'RS256'
+            && ! isset($header['jwk']) && ! isset($header['jku']) && parent::verifyJWTSignature($jwt);
+    }
+
+    protected function validateIssuer(string $iss): bool
+    {
+        return $iss === config('identity.issuer');
     }
 
     protected function verifyJWTClaims($claims, ?string $accessToken = null): bool
     {
         $nonce = $this->getNonce();
-        if (! is_string($claims->sub ?? null) || $claims->sub === ''
+        $audiences = is_array($claims->aud ?? null) ? $claims->aud : [$claims->aud ?? null];
+        if (! is_string($claims->iss ?? null) || ! $this->validateIssuer($claims->iss)
+            || ! in_array(config('identity.client_id'), $audiences, true)
+            || (count($audiences) > 1 && ($claims->azp ?? null) !== config('identity.client_id'))
+            || ! is_string($claims->sub ?? null) || $claims->sub === ''
             || ! is_string($claims->nonce ?? null) || ! is_string($nonce) || ! hash_equals($nonce, $claims->nonce)
             || ! is_int($claims->exp ?? null) || $claims->exp < time() - 30
             || ! is_int($claims->iat ?? null) || $claims->iat > time() + 30
             || (isset($claims->azp) && $claims->azp !== config('identity.client_id'))) {
             return false;
         }
+
         return parent::verifyJWTClaims($claims, $accessToken);
     }
 }

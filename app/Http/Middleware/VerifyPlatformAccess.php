@@ -26,6 +26,7 @@ class VerifyPlatformAccess
         }
         $response = $next($request);
         $response->headers->set('Cache-Control', 'private, no-store');
+
         return $response;
     }
 }

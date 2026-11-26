@@ -2,7 +2,7 @@
 
 return [
     'bootstrap_admin_sub' => env('OIDC_BOOTSTRAP_ADMIN_SUB'),
-    'enabled' => env('OIDC_ENABLED', false),
+    'enabled' => env('OIDC_ENABLED', null),
     'issuer' => env('OIDC_ISSUER'),
     'client_id' => env('OIDC_CLIENT_ID', 'expedientes-seiem'),
     'client_secret' => env('OIDC_CLIENT_SECRET'),

@@ -9,17 +9,16 @@
     </div>
 
     <section class="card narrow-card">
-        @if(config('identity.enabled'))<p class="form-hint">Aquí se administran el rol y acceso a Expedientes. Los datos de la cuenta y su contraseña se gestionan en Usuarios y accesos de la plataforma.</p>@endif
         <form method="POST" action="{{ $user ? route('users.update', $user) : route('users.store') }}" data-cargando="{{ $user ? 'Guardando cambios…' : 'Creando usuario…' }}">
             @csrf @if($user) @method('PUT') @endif
             <div class="form-field">
                 <label for="name">Nombre completo<span class="required" aria-hidden="true">*</span></label>
-                <input class="input-text" id="name" name="name" @readonly(config('identity.enabled')) value="{{ old('name', $user?->name) }}" maxlength="255" required aria-required="true" autocomplete="off" @error('name') aria-invalid="true" aria-describedby="name-error" @enderror>
+                <input class="input-text" id="name" name="name" value="{{ old('name', $user?->name) }}" maxlength="255" required aria-required="true" autocomplete="off" @error('name') aria-invalid="true" aria-describedby="name-error" @enderror>
                 <x-ui.error-campo campo="name" id="name-error"/>
             </div>
             <div class="form-field">
                 <label for="username">Nombre de usuario<span class="required" aria-hidden="true">*</span></label>
-                <input class="input-text" id="username" name="username" @readonly(config('identity.enabled')) value="{{ old('username', $user?->username) }}" minlength="3" maxlength="50" pattern="[a-zA-Z0-9._\-]+" required aria-required="true" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="username-hint @error('username') username-error @enderror" @error('username') aria-invalid="true" @enderror>
+                <input class="input-text" id="username" name="username" value="{{ old('username', $user?->username) }}" minlength="3" maxlength="50" pattern="[a-zA-Z0-9._\-]+" required aria-required="true" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="username-hint @error('username') username-error @enderror" @error('username') aria-invalid="true" @enderror>
                 <small id="username-hint" class="form-hint">Sin espacios ni acentos; por ejemplo, maria.lopez.</small>
                 <x-ui.error-campo campo="username" id="username-error"/>
             </div>
@@ -40,7 +39,6 @@
                 </select>
                 <x-ui.error-campo campo="is_active" id="is_active-error"/>
             </div>
-            @unless(config('identity.enabled'))
             <div class="form-field">
                 <label for="password">{{ $user ? 'Nueva contraseña' : 'Contraseña' }}@unless($user)<span class="required" aria-hidden="true">*</span>@endunless</label>
                 <div class="password-field"><input class="input-text" id="password" type="password" name="password" minlength="12" autocomplete="new-password" @required(! $user) @unless($user) aria-required="true" @endunless aria-describedby="password-hint @error('password') password-error @enderror" @error('password') aria-invalid="true" @enderror><button type="button" class="password-toggle" data-password-toggle aria-controls="password" aria-pressed="false" aria-label="Mostrar contraseña">Mostrar</button></div>
@@ -53,7 +51,6 @@
                 <x-ui.error-campo campo="password_confirmation" id="password-confirmation-error"/>
             </div>
             @if($user)<p class="form-hint">Deja la contraseña vacía para conservarla. Si la cambias, se cierran las sesiones abiertas de esta cuenta.</p>@endif
-            @endunless
             <div class="form-actions">
                 <x-ui.boton type="submit"><x-ui.icono :nombre="$user ? 'check' : 'agregar'" class="icono-sm"/>{{ $user ? 'Guardar cambios' : 'Crear usuario' }}</x-ui.boton>
                 <x-ui.boton variante="secondary" :href="route('users.index')">Cancelar</x-ui.boton>

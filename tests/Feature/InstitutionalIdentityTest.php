@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Expediente;
 use App\Models\User;
 use App\Services\Identity\LaravelOidcClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,7 +29,10 @@ class InstitutionalIdentityTest extends TestCase
     private function account(string $role = 'READER'): User
     {
         $user = User::factory()->create(['role' => $role, 'is_active' => true]);
-        $user->identity_issuer = config('identity.issuer'); $user->identity_subject = fake()->uuid(); $user->save();
+        $user->identity_issuer = config('identity.issuer');
+        $user->identity_subject = fake()->uuid();
+        $user->save();
+
         return $user;
     }
 
@@ -39,12 +43,14 @@ class InstitutionalIdentityTest extends TestCase
         $client->shouldReceive('getVerifiedClaims')->once()->andReturn((object) ['sub' => $subject, 'preferred_username' => $username, 'name' => 'Cuenta Institucional', 'sid' => 'provider-session']);
         $client->shouldReceive('getIdToken')->zeroOrMoreTimes()->andReturn('id-token');
         $this->app->instance(LaravelOidcClient::class, $client);
+
         return $this->withSession(['oidc.handshake.openid_connect_state' => 'expected', 'oidc.started_at' => time()])->get('/auth/callback?state=expected&code=test');
     }
 
     public function test_local_password_login_is_disabled_and_forged_callbacks_never_reach_provider(): void
     {
-        $client = Mockery::mock(LaravelOidcClient::class);$client->shouldNotReceive('authenticate');
+        $client = Mockery::mock(LaravelOidcClient::class);
+        $client->shouldNotReceive('authenticate');
         $this->app->instance(LaravelOidcClient::class, $client);
         $this->post('/login', ['username' => 'admin', 'password' => 'guess'])->assertNotFound();
         $this->get('/auth/callback?code=forged&state=forged')->assertStatus(400);
@@ -57,7 +63,8 @@ class InstitutionalIdentityTest extends TestCase
         $existing = User::factory()->create(['username' => 'administrador', 'role' => 'ADMIN']);
         $this->completeCallback('new-subject', 'administrador')->assertRedirect(route('expedientes.index'));
         $current = auth()->user();
-        $this->assertNotSame($existing->id, $current->id);$this->assertSame('READER', $current->role);
+        $this->assertNotSame($existing->id, $current->id);
+        $this->assertSame('READER', $current->role);
         $this->assertSame('new-subject', $current->identity_subject);
         $this->assertDatabaseHas('identity_sessions', ['user_id' => $current->id, 'provider_sid' => 'provider-session']);
     }
@@ -79,7 +86,7 @@ class InstitutionalIdentityTest extends TestCase
     public function test_revocation_blocks_every_protected_request_including_private_files(): void
     {
         $user = $this->account();
-        $expediente = \App\Models\Expediente::create(['name' => 'Privado', 'responsible_id' => $user->id]);
+        $expediente = Expediente::create(['name' => 'Privado', 'responsible_id' => $user->id]);
         $document = $expediente->documents()->create(['name' => 'Privado', 'type' => 'INE']);
         $version = $document->versions()->create(['version' => 1, 'path' => 'private.pdf', 'original_name' => 'private.pdf',
             'mime' => 'application/pdf', 'size' => 10, 'hash' => str_repeat('a', 64), 'uploaded_by' => $user->id]);
@@ -97,7 +104,8 @@ class InstitutionalIdentityTest extends TestCase
     public function test_project_admin_changes_roles_but_cannot_set_an_independent_password(): void
     {
         Http::fake(['https://portal.test/*' => Http::response(['allowed' => true])]);
-        $admin = $this->account('ADMIN');$reader = $this->account();
+        $admin = $this->account('ADMIN');
+        $reader = $this->account();
         $this->actingAs($admin)->get('/users/'.$reader->id.'/edit')->assertOk()->assertDontSee('name="password"', false)->assertSee('readonly', false);
         $this->put('/users/'.$reader->id, ['role' => 'LOADER', 'is_active' => 1])->assertRedirect(route('users.index'));
         $this->assertSame('LOADER', $reader->fresh()->role);
@@ -106,9 +114,52 @@ class InstitutionalIdentityTest extends TestCase
         $this->get('/expedientes')->assertDontSee('Cambiar mi contraseña')->assertSee('Plataforma Institucional SEIEM');
     }
 
+    public function test_suspended_identity_is_not_reactivated_and_has_no_local_password(): void
+    {
+        Http::fake(['https://portal.test/*' => Http::response(['allowed' => true])]);
+        $user = $this->account();
+        $user->update(['is_active' => false]);
+        $this->completeCallback($user->identity_subject, $user->username)->assertForbidden();
+        $this->assertFalse($user->fresh()->is_active);
+        $this->assertGuest();
+    }
+
+    public function test_new_identity_has_no_local_credential_and_reader_cannot_manage_roles(): void
+    {
+        Http::fake(['https://portal.test/*' => Http::response(['allowed' => true])]);
+        $this->completeCallback('no-local-password', 'new.reader')->assertRedirect();
+        $this->assertNull(auth()->user()->password);
+        $this->get('/users')->assertForbidden();
+    }
+
+    public function test_local_account_creation_form_is_rejected_in_institutional_profile(): void
+    {
+        Http::fake(['https://portal.test/*' => Http::response(['allowed' => true])]);
+        $this->actingAs($this->account('ADMIN'))->get('/users/create')->assertNotFound();
+    }
+
+    public function test_logout_remains_available_during_platform_outage(): void
+    {
+        Http::fake(['https://portal.test/*' => Http::response('', 503)]);
+        $this->actingAs($this->account())->post('/logout')->assertRedirect('https://portal.test');
+        $this->assertGuest();
+        Http::assertNothingSent();
+    }
+
+    public function test_expired_handshake_does_not_reach_the_provider(): void
+    {
+        $client = Mockery::mock(LaravelOidcClient::class);
+        $client->shouldNotReceive('authenticate');
+        $this->app->instance(LaravelOidcClient::class, $client);
+        $this->withSession(['oidc.handshake.openid_connect_state' => 'expected', 'oidc.started_at' => time() - 601])
+            ->get('/auth/callback?state=expected&code=test')->assertStatus(400);
+        $this->assertGuest();
+    }
+
     public function test_verified_backchannel_logout_deletes_only_the_matching_provider_session(): void
     {
-        $first = $this->account();$other = $this->account();
+        $first = $this->account();
+        $other = $this->account();
         foreach ([$first, $other] as $user) {
             DB::table('sessions')->insert(['id' => 'session-'.$user->id, 'user_id' => $user->id, 'payload' => '', 'last_activity' => time()]);
             DB::table('identity_sessions')->insert(['session_id' => 'session-'.$user->id, 'user_id' => $user->id, 'provider_sid' => 'sid-'.$user->id, 'created_at' => now()]);

@@ -1,26 +1,43 @@
-# Expedientes en la plataforma institucional
+# Publicación institucional de Expedientes
 
-La copia está en https://192.168.100.54:10443 y aparece en Departamento de Personal como Sistema de Expedientes. El código se modifica en este repositorio y se despliega a `/opt/seiem/expedientes`. La configuración privada está fuera del repositorio, en `/opt/seiem/env/expedientes.env`.
+La instalación observada está en https://192.168.100.54:10443, fuente /opt/seiem/expedientes, configuración privada /opt/seiem/env/expedientes.env, MySQL 8.4 y almacenamiento persistente. Infraestructura mantiene Compose, Nginx, TLS, Keycloak, API de acceso, respaldos y planificador. No publicar/desplegar sin instrucción explícita.
 
-La instalación parte de una base MySQL propia, con almacenamiento privado persistente, clave de aplicación y cookie independientes. No se importó la base MySQL local: su conexión no estaba disponible desde la sesión de despliegue. El SQLite antiguo incluido como archivo `expedientes` se abrió únicamente en modo lectura y tenía cero usuarios, expedientes, documentos, versiones y permisos. El sistema nuevo queda sin expedientes previos. Los archivos se sirven mediante rutas autorizadas; la base y su almacenamiento no son públicos.
+## Construcción
 
-Con `OIDC_ENABLED=true`, el acceso institucional usa Authorization Code con PKCE S256, RS256, state y nonce. Se bloquea la contraseña local. Toda petición protegida, incluidas descargas y visor, comprueba el permiso central. Retirar el acceso en la plataforma bloquea la petición siguiente; un fallo de verificación se rechaza con 503. El cierre institucional está en el menú de cuenta y recibe notificaciones backchannel.
+Desde un checkout revisado de unificacion, después de confirmar cambios:
 
-La plataforma concede acceso al sistema. Cada identidad nueva entra como Lector, sin expedientes autorizados. La cuenta bootstrap explícita recibe el primer rol Administrador; no se adopta una cuenta por coincidencia de nombre, usuario o correo. En Usuarios y permisos se administran los roles y la desactivación local; nombres y contraseñas se administran en la plataforma. El Administrador de Expedientes gestiona usuarios y permisos; el Editor crea y administra sus propios expedientes; el Lector consulta y descarga lo que le hayan autorizado. Administrar la plataforma no concede automáticamente administración del sistema.
+```powershell
+composer validate --no-check-publish
+composer test
+$revision = git rev-parse HEAD
+powershell -NoProfile -ExecutionPolicy Bypass -File deploy/vm/package.ps1 -Ref $revision -Destination "$env:TEMP\seiem-expedientes-source.tar.gz"
+docker build -f deploy/vm/Dockerfile --build-arg "SOURCE_REVISION=$revision" -t "expedientes-seiem:$revision" .
+```
 
-## Despliegue
+El paquete usa exclusivamente el commit elegido y genera manifiesto de revisión/SHA256. Rechaza cambios sin confirmar y excluye secretos, bases, documentos, dependencias instaladas y cachés. Ya no requiere deploy/vm/composer-cache. Composer usa el lock y las imágenes base están fijadas por digest. Construir con conectividad o repositorio administrado de artefactos. Conservar/promover la misma imagen por digest: Alpine aún impide prometer reconstrucción idéntica sin fijar un snapshot de sus paquetes.
 
-1. Instalar las dependencias de `composer.lock`. El Dockerfile usa PHP 8.4 con PDO MySQL, cURL, Intl y ZIP. La base utiliza MySQL 8.4.
-2. Preparar `deploy/vm/composer-cache` con los ZIP de producción para el piloto con conectividad limitada. Se excluye de Git y no contiene secretos.
-3. Ejecutar `powershell -NoProfile -ExecutionPolicy Bypass -File deploy/vm/package.ps1`, copiar el paquete y extraerlo en `/opt/seiem/expedientes`. Se excluyen `.env`, datos, dependencias instaladas y cachés.
-4. El Compose y Nginx del proyecto de la plataforma declaran `expedientes`, `expedientes-db`, su red y volúmenes y el puerto HTTPS 10443. `setup-expedientes.py` genera secretos privados y registra el cliente `expedientes-seiem` y un token exclusivo para verificar permisos; al repetirlo conserva los secretos.
-5. Construir y levantar con `docker compose build expedientes portal` y `docker compose up -d --wait expedientes portal proxy`. Para reutilizar las capas de este piloto se usa `--build-arg APK_MIRROR=http://127.0.0.1:8899`; puede omitirse con acceso normal a Alpine.
-6. Habilitar al administrador inicial con `docker compose exec -T portal php < app/deploy/vm/enable-expedientes.php` e instalar el planificador con `expedientes-scheduler.py`. No se vuelven a importar bases en actualizaciones normales.
+Completar privadamente [../production.env.example](../production.env.example). No pasar secretos como argumentos de construcción. Registrar cliente propio expedientes-seiem, callback /auth/callback, logout, backchannel /auth/backchannel-logout, CA y asignación central. Bootstrap ADMIN requiere subject explícitamente aprobado; el resto entra como READER. Retirar bootstrap tras verificar el administrador.
 
-El contenedor migra y prepara cachés al iniciar. El límite es de 10 MB por archivo y 20 archivos por carga; PHP y Nginx permiten ese tamaño de lote. La tarea de expiración corre cada minuto; los permisos también se verifican al acceder.
+## Actualización autorizada
 
-El respaldo diario incluye MySQL, configuración y `storage/app`, con documentos y versiones. `verify-expedientes-backup.py` restaura en una base temporal aislada, verifica los conteos y elimina únicamente esa base temporal. No usar `docker compose down -v`: elimina volúmenes persistentes.
+Ensayar en integración y respaldar MySQL, configuración y todo storage/app, con restauración comprobada. Registrar revisión y digest anterior/nuevo. No importar desarrollo ni extraer archivos sobre secretos o volúmenes.
 
-## Verificación
+En /opt/seiem, preparada la fuente identificada y autorizada la actualización:
 
-Las pruebas locales usan SQLite en memoria y no modifican la base local. `tests/Browser/expedientes.mjs`, en el proyecto de la plataforma, verifica SSO, roles, creación, carga y descarga, permisos por lote, revocación y suspensión. Usa cuentas y archivos desechables que elimina al terminar. No se crean contraseñas predeterminadas ni se guardan credenciales en Git.
+```sh
+docker compose build --build-arg SOURCE_REVISION=REVISION_GIT expedientes
+docker compose up -d --wait --no-deps expedientes
+docker compose exec -T expedientes php artisan migrate:status
+```
+
+Sustituir REVISION_GIT por el hash del manifiesto. Preferir distribuir la imagen ya ensayada y fijar su digest en Compose. Solo actualizar portal/proxy/identidad si cambian sus contratos. Esta imagen sirve PHP-FPM; el proxy TLS sigue en infraestructura. Mantener volumen storage, CA y configuración privada fuera de la imagen.
+
+El entrypoint valida perfil antes de migrar y prepara cachés. La nueva migración no se ha ejecutado en producción; ensayarla en MySQL de integración. Serializar despliegues para evitar migraciones concurrentes. Mantener schedule:run cada minuto. No usar docker compose down -v.
+
+Aceptar con cuentas temporales en integración: SSO, sin asignación, revocación, suspensión interna, roles, rutas locales bloqueadas, documentos ficticios y logout institucional. Fallas del portal/Keycloak deben denegar acceso sin habilitar otra autenticación.
+
+## Recuperación
+
+Conservar digest anterior, manifiesto y respaldo. Si el esquema sigue compatible, recuperar imagen anterior y verificar acceso/salud. Si no, planificar restauración conjunta de base/archivos/configuración, contabilizando cambios posteriores al respaldo. No hacer migrate:rollback a ciegas: NOT NULL se rechaza mientras haya identidades sin contraseña.
+
+Las utilidades históricas setup-expedientes.py, enable-expedientes.php, expedientes-scheduler.py, verify-expedientes-backup.py y pruebas browser institucionales pertenecen al repositorio de la plataforma. Verificar allí su disponibilidad/compatibilidad; no son dependencias del desarrollo autónomo.

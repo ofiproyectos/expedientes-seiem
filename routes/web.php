@@ -5,22 +5,26 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BulkPermissionController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ExpedienteController;
+use App\Http\Controllers\InstitutionalAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureActiveUser;
-use Illuminate\Support\Facades\Route;
+use App\Http\Middleware\VerifyPlatformAccess;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/expedientes');
-Route::get('/auth/redirect', [\App\Http\Controllers\InstitutionalAuthController::class, 'redirect'])->name('institution.login')->middleware('throttle:30,1');
-Route::get('/auth/callback', [\App\Http\Controllers\InstitutionalAuthController::class, 'callback'])->middleware('throttle:30,1');
-Route::post('/auth/backchannel-logout', [\App\Http\Controllers\InstitutionalAuthController::class, 'backchannel'])->middleware('throttle:120,1');
+Route::get('/auth/redirect', [InstitutionalAuthController::class, 'redirect'])->name('institution.login')->middleware('throttle:30,1');
+Route::get('/auth/callback', [InstitutionalAuthController::class, 'callback'])->middleware('throttle:30,1');
+Route::post('/auth/backchannel-logout', [InstitutionalAuthController::class, 'backchannel'])->middleware('throttle:120,1');
 Route::middleware('guest')->group(function () {
-    Route::get('/login', function (Request $request) { return config('identity.enabled') ? app(\App\Http\Controllers\InstitutionalAuthController::class)->redirect($request) : view('auth.login'); })->name('login')->middleware('throttle:30,1');
+    Route::get('/login', function (Request $request) {
+        return config('identity.enabled') ? app(InstitutionalAuthController::class)->redirect($request) : view('auth.login');
+    })->name('login')->middleware('throttle:30,1');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1');
 });
-Route::middleware(['auth', EnsureActiveUser::class, \App\Http\Middleware\VerifyPlatformAccess::class])->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
+// Closing a session remains available during central access outages.
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+Route::middleware(['auth', EnsureActiveUser::class, VerifyPlatformAccess::class])->group(function () {
     Route::resource('expedientes', ExpedienteController::class)->only('index', 'create', 'store', 'show', 'update');
     Route::post('/expedientes/{expediente}/documents', [DocumentController::class, 'store'])->name('documents.store');
     Route::put('/documents/{document}', [DocumentController::class, 'update'])->name('documents.update');
@@ -42,5 +46,5 @@ Route::middleware(['auth', EnsureActiveUser::class, \App\Http\Middleware\VerifyP
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
     Route::post('/users', [UserController::class, 'save'])->name('users.store');
     Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-    Route::put('/users/{user}', [UserController::class, 'save'])->name('users.update');
+    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
 });

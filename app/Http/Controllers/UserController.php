@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\Identity\IdentityProfile;
 use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,7 @@ class UserController extends Controller
     public function create(Request $request)
     {
         $this->authorizeAdmin($request);
-        if (config('identity.enabled')) return redirect()->away(rtrim(config('identity.portal_url'), '/').'/administracion/accesos/crear');
+        abort_unless(app(IdentityProfile::class)->canManageLocalAccounts(), 404);
 
         return view('user-form', ['user' => null]);
     }
@@ -39,31 +40,13 @@ class UserController extends Controller
     {
         $this->authorizeAdmin($request);
 
-        return view('user-form', compact('user'));
+        return view(config('identity.enabled') ? 'users.roles' : 'user-form', compact('user'));
     }
 
     public function save(Request $request, ?User $user = null)
     {
         $this->authorizeAdmin($request);
-        if (config('identity.enabled')) {
-            abort_unless($user, 404);
-            $data = $request->validate([
-                'name' => ['sometimes', Rule::in([$user->name])], 'username' => ['sometimes', Rule::in([$user->username])],
-                'role' => ['required', Rule::in(User::ROLES)], 'is_active' => ['required', 'boolean'],
-                'password' => ['prohibited'], 'password_confirmation' => ['prohibited'],
-            ]);
-            if ($user->is($request->user()) && ($data['role'] !== 'ADMIN' || ! $request->boolean('is_active'))) {
-                return back()->withErrors(['role' => 'No puedes desactivar ni quitar el rol de administrador de tu propia cuenta.']);
-            }
-            $before = $user->only('role', 'is_active');
-            $user->update(['role' => $data['role'], 'is_active' => $request->boolean('is_active')]);
-            if (! $user->is_active) {
-                DB::table('sessions')->where('user_id', $user->id)->delete();
-                DB::table('identity_sessions')->where('user_id', $user->id)->delete();
-            }
-            Audit::record('user.updated', 'Actualización de rol y acceso local', $user, ['before' => $before, 'after' => $user->only('role', 'is_active')]);
-            return redirect()->route('users.index')->with('status', 'Permisos del usuario guardados.');
-        }
+        abort_unless(app(IdentityProfile::class)->canManageLocalAccounts(), 404);
         $request->merge(['username' => Str::lower(trim((string) $request->input('username')))]);
         $data = $request->validate([
             'name' => 'required|string|max:255',
@@ -109,6 +92,34 @@ class UserController extends Controller
         }
 
         return redirect()->route('users.index')->with('status', 'Usuario guardado.');
+    }
+
+    public function update(Request $request, User $user)
+    {
+        return config('identity.enabled') ? $this->updateRoles($request, $user) : $this->save($request, $user);
+    }
+
+    private function updateRoles(Request $request, User $user)
+    {
+        $this->authorizeAdmin($request);
+
+        $data = $request->validate([
+            'name' => ['sometimes', Rule::in([$user->name])], 'username' => ['sometimes', Rule::in([$user->username])],
+            'role' => ['required', Rule::in(User::ROLES)], 'is_active' => ['required', 'boolean'],
+            'password' => ['prohibited'], 'password_confirmation' => ['prohibited'],
+        ]);
+        if ($user->is($request->user()) && ($data['role'] !== 'ADMIN' || ! $request->boolean('is_active'))) {
+            return back()->withErrors(['role' => 'No puedes desactivar ni quitar el rol de administrador de tu propia cuenta.']);
+        }
+        $before = $user->only('role', 'is_active');
+        $user->update(['role' => $data['role'], 'is_active' => $request->boolean('is_active')]);
+        if (! $user->is_active) {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+            DB::table('identity_sessions')->where('user_id', $user->id)->delete();
+        }
+        Audit::record('user.updated', 'Actualización de rol y acceso local', $user, ['before' => $before, 'after' => $user->only('role', 'is_active')]);
+
+        return redirect()->route('users.index')->with('status', 'Permisos del usuario guardados.');
     }
 
     private function authorizeAdmin(Request $request): void
